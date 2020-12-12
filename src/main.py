@@ -8,7 +8,8 @@ from algorithms.A3C.A3CWorker import A3CWorker
 
 def train(globalA3C: A3C, n_threads):
     # Instantiate one worker per thread
-    workers = [A3CWorker(globalA3C) for _ in range(n_threads)]
+    workers = [A3CWorker(globalA3C) for _ in range(n_threads - 1)]
+    workers.append(A3CWorker(globalA3C, log_info=True))
     globalA3C.env.close()
 
     # Create threads
@@ -20,16 +21,16 @@ def train(globalA3C: A3C, n_threads):
         time.sleep(2)
         t.start()
 
-    for t in threads:
-        t.join()
+    while globalA3C.episode < globalA3C.MAX_EPISODES:
+        time.sleep(1)
 
 
 def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--algorithm', help='Algorithm to use.', default='A3C')
-    parser.add_argument('--threads', help='Number of threads for A3C.', type=int, default=5)
-    parser.add_argument('--episodes', help='Number of episodes.', type=int, default=10000)
+    parser.add_argument('--threads', help='Number of threads for A3C.', type=int, default=10)
+    parser.add_argument('--episodes', help='Number of episodes.', type=int, default=100000)
     parser.add_argument('--discount', help='Discount rate.', type=float, default=0.99)
     parser.add_argument('--tmax', help='Max stapes before update.', type=int, default=5)
     parser.add_argument('--actor_lr', help='Actor learning rate.', type=float, default=0.001)

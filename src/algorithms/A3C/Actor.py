@@ -5,16 +5,13 @@ from torch import nn
 class Actor:
     train_fn = {}
 
-    def __init__(self, global_model_params=None, **kwargs):
+    def __init__(self, **kwargs):
         self.action_space = kwargs['action_space']
         self.state_space = kwargs['state_space']
         self.learning_rate = kwargs['learning_rate']
         self.model_output_dim = 2  # alpha and beta for beta distribution
         self.model = self.create_model()
-        if global_model_params is None:
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        else:
-            self.optimizer = torch.optim.Adam(global_model_params, lr=self.learning_rate)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
     def create_model(self):
         model = nn.Sequential(
@@ -23,7 +20,7 @@ class Actor:
             nn.Linear(64, 32),
             nn.Sigmoid(),
             nn.Linear(32, self.model_output_dim),
-            nn.ReLU()
+            nn.Softplus()
         )
         print(model)
 
@@ -40,7 +37,7 @@ class Actor:
         action = self.beta_to_action(dist.sample())
         return action
 
-    # two functinos below: scale and move beta distribution as action space is non-symmetrical.
+    # two functions below: scale and move beta distribution as action space is non-symmetrical.
     def action_to_beta(self, action):
         low_boundary, high_boundary = self.action_space.low, self.action_space.high
         return (action - low_boundary) / (high_boundary - low_boundary)

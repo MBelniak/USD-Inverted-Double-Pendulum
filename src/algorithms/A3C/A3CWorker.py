@@ -1,5 +1,6 @@
 import torch
 from algorithms.A3C.A3C import A3C
+from logger.logger import a3c_logger
 from utils import ENV_NAME, t
 from algorithms.A3C.Actor import Actor
 from algorithms.A3C.Critic import Critic
@@ -16,7 +17,7 @@ def ensure_shared_grads(model, shared_model):
 
 class A3CWorker:
     # A3C worker (thread)
-    def __init__(self, globalA3C: A3C):
+    def __init__(self, globalA3C: A3C, log_info=False):
         # Environment and PPO parameters
         self.env = gym.make(ENV_NAME)
         self.globalA3C = globalA3C
@@ -24,16 +25,16 @@ class A3CWorker:
         self.MAX_EPISODES = globalA3C.MAX_EPISODES
         self.lock = globalA3C.lock
         self.discount_rate = globalA3C.discount_rate
+        self.local_episode = 0
         self.t_max = globalA3C.t_max
+        self.log_info = log_info
         # Instantiate plot memory
         self.scores, self.episodes, self.accum_rewards = [], [], 0
 
         # Create Actor-Critic network model
-        self.Actor = Actor(global_model_params=globalA3C.Actor.model.parameters(),
-                           state_space=self.env.observation_space, learning_rate=self.globalA3C.actor_learning_rate,
+        self.Actor = Actor(state_space=self.env.observation_space, learning_rate=self.globalA3C.actor_learning_rate,
                            action_space=self.action_space)
-        self.Critic = Critic(global_model_params=globalA3C.Actor.model.parameters(),
-                             state_space=self.env.observation_space, learning_rate=self.globalA3C.critic_learning_rate)
+        self.Critic = Critic(state_space=self.env.observation_space, learning_rate=self.globalA3C.critic_learning_rate)
         self.Actor.model.train()
         self.Critic.model.train()
 
@@ -57,11 +58,13 @@ class A3CWorker:
 
         actor_loss.backward()
         critic_loss.backward()
+        ensure_shared_grads(self.Actor.model, self.globalA3C.Actor.model)
+        ensure_shared_grads(self.Critic.model, self.globalA3C.Critic.model)
         self.globalA3C.Critic.optimizer.step()
         self.globalA3C.Actor.optimizer.step()
         self.scores.append(R)
-        if self.globalA3C.episode > 0 and self.globalA3C.episode % 100 == 0:
-            print(f"Episode: {self.globalA3C.episode}, accumulated rewards over 100 episodes: {self.accum_rewards}")
+        if self.log_info and self.local_episode > 0 and self.local_episode % 1000 == 0:
+            a3c_logger.info(f"Episode: {self.globalA3C.episode}, accumulated rewards over 1000 episodes: {self.accum_rewards}")
             self.accum_rewards = 0
 
     def sync_models(self):
@@ -70,8 +73,6 @@ class A3CWorker:
 
     def run(self):
         iteration = 1
-        ensure_shared_grads(self.Actor.model, self.globalA3C.Actor.model)
-        ensure_shared_grads(self.Critic.model, self.globalA3C.Critic.model)
         while self.globalA3C.episode < self.MAX_EPISODES:
             is_terminal, saving = False, ''  # Reset gradients etc
             states, actions, rewards = [], [], []  # reset thread memory
@@ -91,5 +92,6 @@ class A3CWorker:
             self.update_global_models(states, actions, rewards, last_state=state, last_terminal=is_terminal)
             self.globalA3C.episode += 1
             self.lock.release()
+            self.local_episode += 1
 
         self.env.close()
