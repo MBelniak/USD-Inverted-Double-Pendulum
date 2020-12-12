@@ -27,6 +27,8 @@ class A3CWorker:
         self.lock = globalA3C.lock
         self.discount_rate = globalA3C.discount_rate
         self.step = 1
+        # just for logging rewards
+        self.local_episode = 0
         self.t_max = globalA3C.t_max
         self.log_info = log_info
         # Instantiate plot memory
@@ -76,9 +78,9 @@ class A3CWorker:
         self.globalA3C.Actor.optimizer.step()
         # this will be used later
         self.scores.append(R)
-        if self.log_info and self.step > 0 and self.step % 1000 == 0:
+        if self.log_info and self.local_episode > 0 and self.local_episode % 1000 == 0:
             # just a dummy logging of rewards.
-            a3c_logger.info(f"Step: {self.step}, accumulated rewards over 1000 steps: {self.accum_rewards}")
+            a3c_logger.info(f"Step: {self.local_episode}, accumulated rewards over 1000 steps: {self.accum_rewards}")
             self.accum_rewards = 0
 
     def sync_models(self):
@@ -108,5 +110,6 @@ class A3CWorker:
             self.update_global_models(states, actions, rewards, last_state=state, last_terminal=is_terminal)
             self.globalA3C.episode += 1
             self.lock.release()
+            self.local_episode += 1
 
         self.env.close()
