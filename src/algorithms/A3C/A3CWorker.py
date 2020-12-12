@@ -17,6 +17,7 @@ def ensure_shared_grads(model, shared_model):
 
 class A3CWorker:
     # A3C worker (thread)
+    # globalA3C is a parent object holding global actor and critic models
     def __init__(self, globalA3C: A3C, log_info=False):
         # Environment and PPO parameters
         self.env = gym.make(ENV_NAME)
@@ -25,10 +26,11 @@ class A3CWorker:
         self.MAX_EPISODES = globalA3C.MAX_EPISODES
         self.lock = globalA3C.lock
         self.discount_rate = globalA3C.discount_rate
-        self.local_episode = 0
+        self.step = 1
         self.t_max = globalA3C.t_max
         self.log_info = log_info
         # Instantiate plot memory
+        # not used too much for now
         self.scores, self.episodes, self.accum_rewards = [], [], 0
 
         # Create Actor-Critic network model
@@ -39,59 +41,72 @@ class A3CWorker:
         self.Critic.model.train()
 
     def update_global_models(self, states, actions, rewards, last_state, last_terminal: bool):
-        R = 0 if last_terminal else self.Critic.predict(last_state)
+        # get predicted reward for the last state - we didn't do action in that state
+        R = 0 if last_terminal else self.Critic.predict(t(last_state))
+        # reset gradients for optimizers
         self.Actor.optimizer.zero_grad()
         self.Critic.optimizer.zero_grad()
         critic_loss = 0
         actor_loss = 0
+        # go backwards through states, actions and rewards taken in this episode
         for i in reversed(range(len(rewards))):
             self.accum_rewards += rewards[i]
             R = rewards[i] + self.discount_rate * R
             advantage = (R - self.Critic.predict(t(states[i])))
+            # get Beta distribution parameters with which the action was drawn
             alpha, beta = self.Actor.predict(t(states[i]))
 
             torch.distributions.Beta.set_default_validate_args(True)
             dist = torch.distributions.Beta(alpha + 1, beta + 1)
 
+            # accumulate critic loss
             critic_loss = critic_loss + advantage.pow(2).mean()
+            # accumulate actor loss - we maximize the rewards, thus we take negation of gradient.
+            # Adam opt. then negates it again, so weights are updated in a way which makes advantages higher
             actor_loss = actor_loss - dist.log_prob(self.Actor.action_to_beta(actions[i])) * advantage.detach()
 
+        # compute gradients wrt. weights
         actor_loss.backward()
         critic_loss.backward()
+        # assign gradients of workers' models to global models
         ensure_shared_grads(self.Actor.model, self.globalA3C.Actor.model)
         ensure_shared_grads(self.Critic.model, self.globalA3C.Critic.model)
+        # update weights using these gradients
         self.globalA3C.Critic.optimizer.step()
         self.globalA3C.Actor.optimizer.step()
+        # this will be used later
         self.scores.append(R)
-        if self.log_info and self.local_episode > 0 and self.local_episode % 1000 == 0:
-            a3c_logger.info(f"Episode: {self.globalA3C.episode}, accumulated rewards over 1000 episodes: {self.accum_rewards}")
+        if self.log_info and self.step > 0 and self.step % 1000 == 0:
+            # just a dummy logging of rewards.
+            a3c_logger.info(f"Step: {self.step}, accumulated rewards over 1000 steps: {self.accum_rewards}")
             self.accum_rewards = 0
 
     def sync_models(self):
+        # take weights from global models and assign them to workers models
         self.Actor.set_model_from_global(self.globalA3C.Actor.model)
         self.Critic.set_model_from_global(self.globalA3C.Critic.model)
 
     def run(self):
-        iteration = 1
         while self.globalA3C.episode < self.MAX_EPISODES:
-            is_terminal, saving = False, ''  # Reset gradients etc
-            states, actions, rewards = [], [], []  # reset thread memory
+            # reset stuff
+            is_terminal, saving = False, ''
+            states, actions, rewards = [], [], []
             self.sync_models()
-            t_start = iteration
+            t_start = self.step
             state = self.env.reset()  # reset env and get initial state
 
-            while not is_terminal and iteration - t_start < self.t_max:
+            while not is_terminal and self.step - t_start < self.t_max:
                 states.append(state)  # register current state
                 action = self.Actor.get_action(t(state))  # draw action
                 next_state, reward, is_terminal, info = self.env.step(action.detach().data.numpy())  # perform action
                 actions.append(action)  # register action
                 rewards.append(reward)  # register reward
                 state = next_state
+                self.step += 1
 
             self.lock.acquire()
             self.update_global_models(states, actions, rewards, last_state=state, last_terminal=is_terminal)
             self.globalA3C.episode += 1
             self.lock.release()
-            self.local_episode += 1
 
         self.env.close()

@@ -39,6 +39,7 @@ class A3C:
                            action_space=self.action_space)
         self.Critic = Critic(state_space=self.env.observation_space, learning_rate=self.critic_learning_rate)
 
+        # just pytorch stuff
         self.Actor.model.train()
         self.Critic.model.train()
 

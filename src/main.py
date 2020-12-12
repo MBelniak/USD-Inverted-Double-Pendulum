@@ -29,7 +29,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--algorithm', help='Algorithm to use.', default='A3C')
-    parser.add_argument('--threads', help='Number of threads for A3C.', type=int, default=10)
+    parser.add_argument('--threads', help='Number of threads for A3C.', type=int, default=5)
     parser.add_argument('--episodes', help='Number of episodes.', type=int, default=100000)
     parser.add_argument('--discount', help='Discount rate.', type=float, default=0.99)
     parser.add_argument('--tmax', help='Max stapes before update.', type=int, default=5)
@@ -38,6 +38,7 @@ def main():
     args = parser.parse_args()
 
     if args.algorithm is 'A3C':
+        # Create global actor-critic holding main model
         agent = A3C(max_episodes=args.episodes, discount_rate=args.discount, t_max=args.tmax,
                     actor_lr=args.actor_lr, critic_lr=args.critic_lr)
         train(agent, args.threads)

@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from logger.logger import a3c_logger
 
 
 class Actor:
@@ -22,7 +23,7 @@ class Actor:
             nn.Linear(32, self.model_output_dim),
             nn.Softplus()
         )
-        print(model)
+        a3c_logger.info(model)
 
         return model
 
