@@ -1,6 +1,8 @@
 from threading import Lock
 import pylab
-from utils import ENV_NAME
+import torch
+
+from utils import ENV_NAME, t
 from algorithms.A3C.Actor import Actor
 from algorithms.A3C.Critic import Critic
 import numpy as np
@@ -71,16 +73,31 @@ class A3C:
     #     return self.average[-1]
 
     # def test(self, actor_name, critic_name):
-    #     self.load(actor_name, critic_name)
-    #     for e in range(100):
-    #         state = self.env.reset()
-    #         done = False
-    #         score = 0
-    #         while not done:
-    #             action = np.argmax(self.Actor.get_action(state))
-    #             state, reward, done, _ = self.env.step(action)
-    #             score += reward
-    #             if done:
-    #                 print("episode: {}/{}, score: {}".format(e, self.MAX_EPISODES, score))
-    #                 break
-    #     self.env.close()
+    #     #     self.load(actor_name, critic_name)
+    #     #     for e in range(100):
+    #     #         state = self.env.reset()
+    #     #         done = False
+    #     #         score = 0
+    #     #         while not done:
+    #     #             action = np.argmax(self.Actor.get_action(state))
+    #     #             state, reward, done, _ = self.env.step(action)
+    #     #             score += reward
+    #     #             if done:
+    #     #                 print("episode: {}/{}, score: {}".format(e, self.MAX_EPISODES, score))
+    #     #                 break
+    #     #     self.env.close()
+
+    def render(self):
+        for e in range(10):
+            state = self.env.reset()
+            done = False
+            score = 0
+            while not done:
+                self.env.render()
+                action = self.Actor.get_action(t(state))
+                state, reward, done, _ = self.env.step(action)
+                score += reward
+                if done:
+                    print("episode: {}, score: {}".format(e, score))
+                    break
+        self.env.close()
