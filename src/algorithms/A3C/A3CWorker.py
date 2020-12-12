@@ -78,9 +78,9 @@ class A3CWorker:
         self.globalA3C.Actor.optimizer.step()
         # this will be used later
         self.scores.append(R)
-        if self.log_info and self.local_episode > 0 and self.local_episode % 1000 == 0:
+        if self.log_info and last_terminal:
             # just a dummy logging of rewards.
-            a3c_logger.info(f"Step: {self.local_episode}, accumulated rewards over 1000 steps: {self.accum_rewards}")
+            a3c_logger.info(f"Step: {self.local_episode}, accumulated rewards: {self.accum_rewards}, rewards: {rewards}")
             self.accum_rewards = 0
 
     def sync_models(self):
@@ -89,13 +89,13 @@ class A3CWorker:
         self.Critic.set_model_from_global(self.globalA3C.Critic.model)
 
     def run(self):
+        state = self.env.reset()  # reset env and get initial state
         while self.globalA3C.episode < self.MAX_EPISODES:
             # reset stuff
             is_terminal, saving = False, ''
             states, actions, rewards = [], [], []
             self.sync_models()
             t_start = self.step
-            state = self.env.reset()  # reset env and get initial state
 
             while not is_terminal and self.step - t_start < self.t_max:
                 states.append(state)  # register current state
@@ -110,6 +110,8 @@ class A3CWorker:
             self.update_global_models(states, actions, rewards, last_state=state, last_terminal=is_terminal)
             self.globalA3C.episode += 1
             self.lock.release()
+            if is_terminal:
+                state = self.env.reset()  # reset env and get initial state
             self.local_episode += 1
 
         self.env.close()
