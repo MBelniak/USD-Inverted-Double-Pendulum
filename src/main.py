@@ -20,8 +20,8 @@ def train(globalA3C: A3C, n_threads):
         time.sleep(2)
         t.start()
 
-    while True:
-        time.sleep(5)
+    for t in threads:
+        t.join()
 
 
 def main():
@@ -32,10 +32,13 @@ def main():
     parser.add_argument('--episodes', help='Number of episodes.', type=int, default=10000)
     parser.add_argument('--discount', help='Discount rate.', type=float, default=0.99)
     parser.add_argument('--tmax', help='Max stapes before update.', type=int, default=5)
+    parser.add_argument('--actor_lr', help='Actor learning rate.', type=float, default=0.001)
+    parser.add_argument('--critic_lr', help='Critic learning rate.', type=float, default=0.001)
     args = parser.parse_args()
 
     if args.algorithm is 'A3C':
-        agent = A3C(max_episodes=args.episodes, discount_rate=args.discount, t_max=5)
+        agent = A3C(max_episodes=args.episodes, discount_rate=args.discount, t_max=args.tmax,
+                    actor_lr=args.actor_lr, critic_lr=args.critic_lr)
         train(agent, args.threads)
 
 

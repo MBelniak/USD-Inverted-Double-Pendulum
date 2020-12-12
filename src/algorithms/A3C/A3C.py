@@ -1,25 +1,27 @@
 from threading import Lock
 import pylab
 from utils import ENV_NAME
-from algorithms.A3C.actor import Actor
-from algorithms.A3C.critic import Critic
+from algorithms.A3C.Actor import Actor
+from algorithms.A3C.Critic import Critic
 import numpy as np
 import gym
 import os
 
 
 class A3C:
-    MAX_EPISODES, lock, learning_rate, discount_rate = {}, {}, {}, {}  # for PyCharm to resolve it correctly in A3CWorker
+    # for PyCharm to resolve it correctly in A3CWorker
+    MAX_EPISODES, lock, learning_rate, discount_rate = {}, {}, {}, {}
     t_max, Actor, Critic = {}, {}, {}
 
     # Actor-Critic Main Optimization Algorithm
-    def __init__(self, max_episodes=100000, discount_rate=0.99, t_max=5):
+    def __init__(self, max_episodes=100000, discount_rate=0.99, t_max=5, actor_lr=0.001, critic_lr=0.001):
         self.env = gym.make(ENV_NAME)
         self.action_space = self.env.action_space
         self.action_size = self.action_space.shape[0]
-        self.MAX_EPISODES, self.episode, self.max_average = max_episodes, 0, -21.0
+        self.MAX_EPISODES, self.episode = max_episodes, 0
         self.lock = Lock()
-        self.learning_rate = 0.0001
+        self.actor_learning_rate = actor_lr
+        self.critic_learning_rate = critic_lr
         self.discount_rate = discount_rate
         self.t_max = t_max
         # Instantiate plot memory
@@ -27,15 +29,18 @@ class A3C:
 
         self.Save_Path = 'Models'
 
-        if not os.path.exists(self.Save_Path):
-            os.makedirs(self.Save_Path)
+        # if not os.path.exists(self.Save_Path):
+        #     os.makedirs(self.Save_Path) TODO
         self.path = 'A3C_{}'.format(self.learning_rate)
         self.Model_name = os.path.join(self.Save_Path, self.path)
 
         # Create Actor-Critic network model
-        self.Actor = Actor(state_space=self.env.observation_space, learning_rate=self.learning_rate,
+        self.Actor = Actor(state_space=self.env.observation_space, learning_rate=self.actor_learning_rate,
                            action_space=self.action_space)
-        self.Critic = Critic(state_space=self.env.observation_space, learning_rate=self.learning_rate)
+        self.Critic = Critic(state_space=self.env.observation_space, learning_rate=self.critic_learning_rate)
+
+        self.Actor.model.train()
+        self.Critic.model.train()
 
     # def load(self, actor_name, critic_name):
     #     self.Actor.model = load_model(actor_name, compile=False)
@@ -45,7 +50,7 @@ class A3C:
     #     self.Actor.model.save(self.Model_name + '_Actor.h5')
     #     self.Critic.model.save(self.Model_name + '_Critic.h5')
 
-    pylab.figure(figsize=(18, 9))
+    # pylab.figure(figsize=(18, 9))
 
     # TODO
     # def PlotModel(self, score, episode):

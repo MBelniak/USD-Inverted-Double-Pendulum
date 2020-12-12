@@ -3,11 +3,14 @@ from torch import nn
 
 
 class Critic:
-    def __init__(self, **kwargs):
+    def __init__(self, global_model_params=None, **kwargs):
         self.state_space = kwargs['state_space']
         self.learning_rate = kwargs['learning_rate']
         self.model = self.create_model()
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        if global_model_params is None:
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        else:
+            self.optimizer = torch.optim.Adam(global_model_params, lr=self.learning_rate)
 
     def create_model(self):
         model = nn.Sequential(
