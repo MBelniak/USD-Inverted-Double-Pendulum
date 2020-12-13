@@ -2,12 +2,11 @@ from threading import Lock
 from matplotlib import pyplot as plt
 import torch
 import numpy as np
-from utils import ENV_NAME, t
 from algorithms.A3C.Actor import Actor
 from algorithms.A3C.Critic import Critic
 import gym
 import os
-from utils import get_default_save_filename, ensure_unique_path
+from utils import get_default_save_filename, ensure_unique_path, ENV_NAME, t
 
 SAVE_DIR = "saved_models"
 PLOTS_DIR = "plots"
@@ -30,9 +29,9 @@ class A3C:
         self.discount_rate = discount_rate
         self.step_max = step_max
         # Instantiate plot memory
-        self.scores, self.episodes, self.average = [], [], []
+        self.scores, self.episodes = [], []
 
-        # Create Actor-Critic network model
+        # Create Actor-Critic network models
         self.Actor = Actor(state_space=self.env.observation_space, learning_rate=self.actor_learning_rate,
                            action_space=self.action_space)
         self.Critic = Critic(state_space=self.env.observation_space, learning_rate=self.critic_learning_rate)

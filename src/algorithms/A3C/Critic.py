@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from logger.logger import a3c_logger
 
 
 class Critic:
@@ -20,7 +21,7 @@ class Critic:
             nn.ReLU(),
             nn.Linear(32, 1)
         )
-        print(model)
+        a3c_logger.info(model)
 
         return model
 

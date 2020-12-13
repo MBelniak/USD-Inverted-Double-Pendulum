@@ -35,7 +35,7 @@ class A3CWorker:
         # not used too much for now
         self.scores, self.episodes, self.accum_rewards = [], [], 0
 
-        # Create Actor-Critic network model
+        # Create Actor-Critic network models
         self.Actor = Actor(state_space=self.env.observation_space, learning_rate=self.globalA3C.actor_learning_rate,
                            action_space=self.action_space)
         self.Critic = Critic(state_space=self.env.observation_space, learning_rate=self.globalA3C.critic_learning_rate)

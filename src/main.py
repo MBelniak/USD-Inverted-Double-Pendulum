@@ -6,7 +6,7 @@ from algorithms.A3C.A3C import A3C, get_default_save_filename
 from algorithms.A3C.A3CWorker import A3CWorker
 
 
-def train(globalA3C: A3C, n_threads, no_log):
+def trainA3C(globalA3C: A3C, n_threads, no_log):
     # Instantiate one worker per thread
     if not no_log:
         workers = [A3CWorker(globalA3C) for _ in range(n_threads - 1)]
@@ -71,10 +71,10 @@ def main():
             renderQ(**vars(args))
 
     elif args.algorithm is 'A3C':
-        # Create global actor-critic holding main model
+        # Create global actor-critic holding main models
         agent = A3C(max_episodes=args.episodes, discount_rate=args.discount, step_max=args.step_max,
                     actor_lr=args.actor_lr, critic_lr=args.critic_lr)
-        train(agent, args.threads, args.no_log)
+        trainA3C(agent, args.threads, args.no_log)
 
 
 if __name__ == "__main__":
