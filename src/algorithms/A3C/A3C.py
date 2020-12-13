@@ -132,7 +132,7 @@ class A3C:
         fig_gather.savefig(plot_dir + "/average.png")
 
         fig_mov_av, ax_mov_av = plt.subplots(figsize=(18, 9))
-        ax_mov_av.set_title("Moving average of average score until terminal state for all threads.", fontsize=24)
+        ax_mov_av.set_title("Moving average of average score until terminal state over all threads.", fontsize=24)
         ax_mov_av.set_xlabel("Local episode", fontsize=22)
         ax_mov_av.set_ylabel("Score", fontsize=22)
         y = np.convolve(averages, np.ones(10) / 10, mode='valid')

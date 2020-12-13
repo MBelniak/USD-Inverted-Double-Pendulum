@@ -70,11 +70,14 @@ class A3CWorker:
         actor_loss.backward()
         critic_loss.backward()
         # assign gradients of workers' models to global models
+        self.lock.acquire()
         ensure_shared_grads(self.Actor.model, self.globalA3C.Actor.model)
         ensure_shared_grads(self.Critic.model, self.globalA3C.Critic.model)
         # update weights using these gradients
         self.globalA3C.Critic.optimizer.step()
         self.globalA3C.Actor.optimizer.step()
+        self.globalA3C.episode += 1
+        self.lock.release()
 
         if self.log_info:
             if last_terminal:
@@ -108,10 +111,8 @@ class A3CWorker:
                 state = next_state
                 self.step += 1
 
-            self.lock.acquire()
             self.update_global_models(states, actions, rewards, last_state=state, last_terminal=is_terminal)
-            self.globalA3C.episode += 1
-            self.lock.release()
+
             if is_terminal:
                 state = self.env.reset()  # reset env and get initial state
                 self.local_episode += 1
