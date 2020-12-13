@@ -7,23 +7,10 @@ from algorithms.A3C.Actor import Actor
 from algorithms.A3C.Critic import Critic
 import gym
 import os
+from utils import get_default_save_filename, ensure_unique_path
 
 SAVE_DIR = "saved_models"
 PLOTS_DIR = "plots"
-
-
-def get_default_save_filename(episodes, threads, discount, step_max, actor_lr, critic_lr):
-    return f"A3C--{episodes}-{threads}-{str(discount).replace('.', '_')}-{str(step_max).replace('.', '_')}-" \
-           f"{str(actor_lr).replace('.', '_')}-{str(critic_lr).replace('.', '_')}"
-
-
-def ensure_unique_path(path):
-    if os.path.exists(path):
-        counter = 1
-        while os.path.exists(path + f"({str(counter)})"):
-            counter += 1
-        return path + f"({str(counter)})"
-    return path
 
 
 class A3C:
