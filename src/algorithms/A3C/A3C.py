@@ -9,6 +9,22 @@ import numpy as np
 import gym
 import os
 
+SAVE_DIR = "saved_models"
+
+
+def get_default_save_filename(episodes, discount, tmax, actor_lr, critic_lr):
+    return f"A3C_{episodes}--{str(discount).replace('.', '_')}-{str(tmax).replace('.', '_')}-" \
+           f"{str(actor_lr).replace('.', '_')}-{str(critic_lr).replace('.', '_')}"
+
+
+def ensure_unique_path(path):
+    if os.path.exists(path):
+        counter = 1
+        while os.path.exists(path + str(counter)):
+            counter += 1
+        return path + str(counter)
+    return path
+
 
 class A3C:
     # for PyCharm to resolve it correctly in A3CWorker
@@ -29,13 +45,6 @@ class A3C:
         # Instantiate plot memory
         self.scores, self.episodes, self.average = [], [], []
 
-        self.Save_Path = 'Models'
-
-        # if not os.path.exists(self.Save_Path):
-        #     os.makedirs(self.Save_Path) TODO
-        self.path = 'A3C_{}'.format(self.learning_rate)
-        self.Model_name = os.path.join(self.Save_Path, self.path)
-
         # Create Actor-Critic network model
         self.Actor = Actor(state_space=self.env.observation_space, learning_rate=self.actor_learning_rate,
                            action_space=self.action_space)
@@ -45,13 +54,27 @@ class A3C:
         self.Actor.model.train()
         self.Critic.model.train()
 
-    # def load(self, actor_name, critic_name):
-    #     self.Actor.model = load_model(actor_name, compile=False)
-    #     self.Critic.model = load_model(critic_name, compile=False)
-    #
-    # def save(self):
-    #     self.Actor.model.save(self.Model_name + '_Actor.h5')
-    #     self.Critic.model.save(self.Model_name + '_Critic.h5')
+    def load_models(self, file_name):
+        checkpoint = torch.load(f"{SAVE_DIR}/{file_name}")
+        self.Actor.model.load_state_dict(checkpoint['Actor_state_dict'])
+        self.Critic.model.load_state_dict(checkpoint['Critic_state_dict'])
+        self.Actor.optimizer.load_state_dict(checkpoint['Actor_opt_state_dict'])
+        self.Critic.optimizer.load_state_dict(checkpoint['Critic_opt_state_dict'])
+        self.Actor.model.eval()
+        self.Critic.model.eval()
+
+    def save_models(self):
+        os.makedirs(SAVE_DIR, exist_ok=True)
+        path = SAVE_DIR + "/" + get_default_save_filename(self.MAX_EPISODES, self.discount_rate, self.t_max,
+                                                          self.actor_learning_rate, self.critic_learning_rate)
+        path = ensure_unique_path(path)
+
+        torch.save({
+            'Actor_state_dict': self.Actor.model.state_dict(),
+            'Critic_state_dict': self.Critic.model.state_dict(),
+            'Actor_opt_state_dict': self.Actor.optimizer.state_dict(),
+            'Critic_opt_state_dict': self.Critic.optimizer.state_dict()
+        }, path)
 
     # pylab.figure(figsize=(18, 9))
 

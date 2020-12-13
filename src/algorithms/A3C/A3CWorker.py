@@ -78,10 +78,13 @@ class A3CWorker:
         self.globalA3C.Actor.optimizer.step()
         # this will be used later
         self.scores.append(R)
-        if self.log_info and last_terminal:
-            # just a dummy logging of rewards.
-            a3c_logger.info(f"Step: {self.local_episode}, accumulated rewards: {self.accum_rewards}, rewards: {rewards}")
-            self.accum_rewards = 0
+        if self.log_info:
+            if last_terminal:
+                # just a dummy logging of rewards.
+                a3c_logger.info(f"[Terminal] Step: {self.local_episode}, accumulated rewards: {self.accum_rewards}, rewards: {rewards}")
+                self.accum_rewards = 0
+            elif self.local_episode % 100 == 0:
+                a3c_logger.info(f"Step: {self.local_episode}, accumulated rewards: {self.accum_rewards}")
 
     def sync_models(self):
         # take weights from global models and assign them to workers models
