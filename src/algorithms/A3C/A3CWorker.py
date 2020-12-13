@@ -27,9 +27,9 @@ class A3CWorker:
         self.lock = globalA3C.lock
         self.discount_rate = globalA3C.discount_rate
         self.step = 1
-        # just for logging rewards
+        # just for logging and plotting rewards. Incremented after achieving terminal state,
         self.local_episode = 0
-        self.t_max = globalA3C.t_max
+        self.step_max = globalA3C.step_max
         self.log_info = log_info
         # Instantiate plot memory
         # not used too much for now
@@ -48,8 +48,7 @@ class A3CWorker:
         # reset gradients for optimizers
         self.Actor.optimizer.zero_grad()
         self.Critic.optimizer.zero_grad()
-        critic_loss = 0
-        actor_loss = 0
+        critic_loss, actor_loss = 0, 0
         # go backwards through states, actions and rewards taken in this episode
         for i in reversed(range(len(rewards))):
             self.accum_rewards += rewards[i]
@@ -76,15 +75,15 @@ class A3CWorker:
         # update weights using these gradients
         self.globalA3C.Critic.optimizer.step()
         self.globalA3C.Actor.optimizer.step()
-        # this will be used later
-        self.scores.append(R)
+
         if self.log_info:
             if last_terminal:
                 # just a dummy logging of rewards.
-                a3c_logger.info(f"[Terminal] Step: {self.local_episode}, accumulated rewards: {self.accum_rewards}, rewards: {rewards}")
-                self.accum_rewards = 0
-            elif self.local_episode % 100 == 0:
-                a3c_logger.info(f"Step: {self.local_episode}, accumulated rewards: {self.accum_rewards}")
+                a3c_logger.info(f"Local episode: {self.local_episode}, accumulated rewards: {self.accum_rewards}")
+        if last_terminal:
+            self.scores.append(self.accum_rewards)
+            self.episodes.append(self.local_episode)
+            self.accum_rewards = 0
 
     def sync_models(self):
         # take weights from global models and assign them to workers models
@@ -98,9 +97,9 @@ class A3CWorker:
             is_terminal, saving = False, ''
             states, actions, rewards = [], [], []
             self.sync_models()
-            t_start = self.step
+            step_start = self.step
 
-            while not is_terminal and self.step - t_start < self.t_max:
+            while not is_terminal and self.step - step_start < self.step_max:
                 states.append(state)  # register current state
                 action = self.Actor.get_action(t(state))  # draw action
                 next_state, reward, is_terminal, info = self.env.step(action.detach().data.numpy())  # perform action
@@ -115,6 +114,6 @@ class A3CWorker:
             self.lock.release()
             if is_terminal:
                 state = self.env.reset()  # reset env and get initial state
-            self.local_episode += 1
+                self.local_episode += 1
 
         self.env.close()

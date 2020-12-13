@@ -1,38 +1,38 @@
 from threading import Lock
-import pylab
+from matplotlib import pyplot as plt
 import torch
-
+import numpy as np
 from utils import ENV_NAME, t
 from algorithms.A3C.Actor import Actor
 from algorithms.A3C.Critic import Critic
-import numpy as np
 import gym
 import os
 
 SAVE_DIR = "saved_models"
+PLOTS_DIR = "plots"
 
 
-def get_default_save_filename(episodes, discount, tmax, actor_lr, critic_lr):
-    return f"A3C_{episodes}--{str(discount).replace('.', '_')}-{str(tmax).replace('.', '_')}-" \
+def get_default_save_filename(episodes, threads, discount, step_max, actor_lr, critic_lr):
+    return f"A3C--{episodes}-{threads}-{str(discount).replace('.', '_')}-{str(step_max).replace('.', '_')}-" \
            f"{str(actor_lr).replace('.', '_')}-{str(critic_lr).replace('.', '_')}"
 
 
 def ensure_unique_path(path):
     if os.path.exists(path):
         counter = 1
-        while os.path.exists(path + str(counter)):
+        while os.path.exists(path + f"({str(counter)})"):
             counter += 1
-        return path + str(counter)
+        return path + f"({str(counter)})"
     return path
 
 
 class A3C:
     # for PyCharm to resolve it correctly in A3CWorker
     MAX_EPISODES, lock, learning_rate, discount_rate = {}, {}, {}, {}
-    t_max, Actor, Critic = {}, {}, {}
+    step_max, Actor, Critic = {}, {}, {}
 
     # Actor-Critic Main Optimization Algorithm
-    def __init__(self, max_episodes=100000, discount_rate=0.99, t_max=5, actor_lr=0.001, critic_lr=0.001):
+    def __init__(self, max_episodes=100000, discount_rate=0.99, step_max=5, actor_lr=0.001, critic_lr=0.001):
         self.env = gym.make(ENV_NAME)
         self.action_space = self.env.action_space
         self.action_size = self.action_space.shape[0]
@@ -41,7 +41,7 @@ class A3C:
         self.actor_learning_rate = actor_lr
         self.critic_learning_rate = critic_lr
         self.discount_rate = discount_rate
-        self.t_max = t_max
+        self.step_max = step_max
         # Instantiate plot memory
         self.scores, self.episodes, self.average = [], [], []
 
@@ -63,9 +63,9 @@ class A3C:
         self.Actor.model.eval()
         self.Critic.model.eval()
 
-    def save_models(self):
+    def save_models(self, n_threads):
         os.makedirs(SAVE_DIR, exist_ok=True)
-        path = SAVE_DIR + "/" + get_default_save_filename(self.MAX_EPISODES, self.discount_rate, self.t_max,
+        path = SAVE_DIR + "/" + get_default_save_filename(self.MAX_EPISODES, n_threads, self.discount_rate, self.step_max,
                                                           self.actor_learning_rate, self.critic_learning_rate)
         path = ensure_unique_path(path)
 
@@ -76,25 +76,17 @@ class A3C:
             'Critic_opt_state_dict': self.Critic.optimizer.state_dict()
         }, path)
 
-    # pylab.figure(figsize=(18, 9))
+    def plot(self, workers):
+        plot_dir = PLOTS_DIR + "/" + get_default_save_filename(self.MAX_EPISODES, len(workers), self.discount_rate,
+                                                               self.step_max, self.actor_learning_rate,
+                                                               self.critic_learning_rate)
+        plot_dir = ensure_unique_path(plot_dir)
+        os.makedirs(plot_dir, exist_ok=True)
+
+        self.plot_workers(plot_dir, workers)
+        self.plot_averages(plot_dir, workers)
 
     # TODO
-    # def PlotModel(self, score, episode):
-    #     self.scores.append(score)
-    #     self.episodes.append(episode)
-    #     self.average.append(sum(self.scores[-50:]) / len(self.scores[-50:]))
-    #     if str(episode)[-2:] == "00":  # much faster than episode % 100
-    #         pylab.plot(self.episodes, self.scores, 'b')
-    #         pylab.plot(self.episodes, self.average, 'r')
-    #         pylab.ylabel('Score', fontsize=18)
-    #         pylab.xlabel('Steps', fontsize=18)
-    #         try:
-    #             pylab.savefig(self.path + ".png")
-    #         except OSError:
-    #             pass
-    #
-    #     return self.average[-1]
-
     # def test(self, actor_name, critic_name):
     #     #     self.load(actor_name, critic_name)
     #     #     for e in range(100):
@@ -110,6 +102,71 @@ class A3C:
     #     #                 break
     #     #     self.env.close()
 
+    """
+        Plots accumulated rewards over an episode (from init state to terminal state).
+        Creates one plot for each thread + one plot with all threads together
+    """
+    def plot_workers(self, plot_dir, workers):
+        fig_gather, ax_gather = plt.subplots(figsize=(18, 9))
+        ax_gather.set_title("Scores until terminal state for all threads.", fontsize=24)
+        ax_gather.set_xlabel("Local episode", fontsize=22)
+        ax_gather.set_ylabel("Score", fontsize=22)
+
+        for worker in workers:
+            ax_gather.plot(worker.episodes, worker.scores)
+
+        ax_gather.set_ylim(ymin=0)
+        fig_gather.savefig(plot_dir + "/gathered.png")
+
+        for i in range(len(workers)):
+            fig, ax = plt.subplots(figsize=(18, 9))
+            ax.set_title(f"Scores until terminal state for thread {i + 1}", fontsize=24)
+            ax.set_xlabel("Local episode", fontsize=22)
+            ax.set_ylabel("Score", fontsize=22)
+            ax.plot(workers[i].episodes, workers[i].scores)
+            ax.set_ylim(ymin=0)
+            fig.savefig(plot_dir + f"/thread{i + 1}.png")
+
+    """
+        Plots average of accumulated rewards over all threads for each episode (from init state to terminal state).
+        In addition, creates one plot of moving average for each thread + moving average of average over threads
+    """
+    def plot_averages(self, plot_dir, workers):
+        scores_lengths = np.array([len(worker.scores) for worker in workers])
+        min_len = np.min(scores_lengths)
+        scores = [worker.scores for worker in workers]
+        averages = [np.mean(list(zip(*scores))[i]) for i in range(min_len)]
+
+        fig_gather, ax_gather = plt.subplots(figsize=(18, 9))
+        ax_gather.set_title("Average scores until terminal state over all threads.", fontsize=24)
+        ax_gather.set_xlabel("Local episode", fontsize=22)
+        ax_gather.set_ylabel("Score", fontsize=22)
+        ax_gather.plot([i for i in range(min_len)], averages, 'r')
+        ax_gather.set_ylim(ymin=0)
+        fig_gather.savefig(plot_dir + "/average.png")
+
+        fig_mov_av, ax_mov_av = plt.subplots(figsize=(18, 9))
+        ax_mov_av.set_title("Moving average of average score until terminal state for all threads.", fontsize=24)
+        ax_mov_av.set_xlabel("Local episode", fontsize=22)
+        ax_mov_av.set_ylabel("Score", fontsize=22)
+        y = np.convolve(averages, np.ones(10) / 10, mode='valid')
+        ax_mov_av.plot([i for i in range(len(y))], y, 'r')
+        ax_mov_av.set_ylim(ymin=0)
+        fig_mov_av.savefig(plot_dir + "/moving_av_gathered.png")
+
+        for i in range(len(workers)):
+            fig, ax = plt.subplots(figsize=(18, 9))
+            ax.set_title(f"Moving average of scores until terminal state for thread {i + 1}", fontsize=24)
+            ax.set_xlabel("Local episode", fontsize=22)
+            ax.set_ylabel("Score", fontsize=22)
+            y = np.convolve(workers[i].scores, np.ones(10) / 10, mode='valid')
+            ax.plot(workers[i].episodes[:len(y)], y)
+            ax.set_ylim(ymin=0)
+            fig.savefig(plot_dir + f"/moving_av_thread{i + 1}.png")
+
+    """
+        Render environment and run trained Actor on it.
+    """
     def render(self):
         for e in range(10):
             state = self.env.reset()
