@@ -4,14 +4,11 @@ from logger.logger import a3c_logger
 
 
 class Critic:
-    def __init__(self, global_model_params=None, **kwargs):
+    def __init__(self, **kwargs):
         self.state_space = kwargs['state_space']
-        self.learning_rate = kwargs['learning_rate']
+        self.learning_rate = kwargs['learning_rate'] if 'learning_rate' in kwargs else 0.001
         self.model = self.create_model()
-        if global_model_params is None:
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        else:
-            self.optimizer = torch.optim.Adam(global_model_params, lr=self.learning_rate)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
     def create_model(self):
         model = nn.Sequential(

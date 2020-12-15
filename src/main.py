@@ -13,6 +13,8 @@ def trainA3C(globalA3C: A3C, n_threads, no_log):
         workers.append(A3CWorker(globalA3C, log_info=True))
     else:
         workers = [A3CWorker(globalA3C) for _ in range(n_threads)]
+
+    globalA3C.set_workers(workers)
     globalA3C.env.close()
 
     # Create threads
@@ -30,8 +32,9 @@ def trainA3C(globalA3C: A3C, n_threads, no_log):
     for t in threads:
         t.join()
 
-    globalA3C.save_models(n_threads)
-    globalA3C.plot(workers)
+    globalA3C.save_models()
+    globalA3C.test()
+    globalA3C.plot()
 
 
 def renderA3C(**kwargs):
@@ -73,7 +76,7 @@ def main():
     elif args.algorithm is 'A3C':
         # Create global actor-critic holding main models
         agent = A3C(max_episodes=args.episodes, discount_rate=args.discount, step_max=args.step_max,
-                    actor_lr=args.actor_lr, critic_lr=args.critic_lr)
+                    actor_lr=args.actor_lr, critic_lr=args.critic_lr, n_threads=args.threads)
         trainA3C(agent, args.threads, args.no_log)
 
 

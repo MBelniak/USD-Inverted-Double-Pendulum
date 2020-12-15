@@ -36,13 +36,25 @@ class A3CWorker:
         self.scores, self.episodes, self.accum_rewards = [], [], 0
 
         # Create Actor-Critic network models
-        self.Actor = Actor(state_space=self.env.observation_space, learning_rate=self.globalA3C.actor_learning_rate,
-                           action_space=self.action_space)
-        self.Critic = Critic(state_space=self.env.observation_space, learning_rate=self.globalA3C.critic_learning_rate)
+        self.Actor = Actor(state_space=self.env.observation_space, action_space=self.action_space)
+        self.Critic = Critic(state_space=self.env.observation_space)
         self.Actor.model.train()
         self.Critic.model.train()
 
-    def update_global_models(self, states, actions, rewards, last_state, last_terminal: bool):
+    def update_results(self):
+        self.scores.append(self.accum_rewards)
+        self.episodes.append(self.local_episode)
+        self.accum_rewards = 0
+
+    def update_global_models(self):
+        # assign gradients of workers' models to global models
+        ensure_shared_grads(self.Actor.model, self.globalA3C.Actor.model)
+        ensure_shared_grads(self.Critic.model, self.globalA3C.Critic.model)
+        # update weights using these gradients
+        self.globalA3C.Critic.optimizer.step()
+        self.globalA3C.Actor.optimizer.step()
+
+    def compute_gradients(self, states, actions, rewards, last_state, last_terminal: bool):
         # get predicted reward for the last state - we didn't do action in that state
         R = 0 if last_terminal else self.Critic.predict(t(last_state))
         # reset gradients for optimizers
@@ -58,7 +70,7 @@ class A3CWorker:
             alpha, beta = self.Actor.predict(t(states[i]))
 
             torch.distributions.Beta.set_default_validate_args(True)
-            dist = torch.distributions.Beta(alpha + 1, beta + 1)
+            dist = torch.distributions.Beta(alpha, beta)
 
             # accumulate critic loss
             critic_loss = critic_loss + advantage.pow(2).mean()
@@ -69,29 +81,19 @@ class A3CWorker:
         # compute gradients wrt. weights
         actor_loss.backward()
         critic_loss.backward()
-        # assign gradients of workers' models to global models
-        self.lock.acquire()
-        ensure_shared_grads(self.Actor.model, self.globalA3C.Actor.model)
-        ensure_shared_grads(self.Critic.model, self.globalA3C.Critic.model)
-        # update weights using these gradients
-        self.globalA3C.Critic.optimizer.step()
-        self.globalA3C.Actor.optimizer.step()
-        self.globalA3C.episode += 1
-        self.lock.release()
 
         if self.log_info:
             if last_terminal:
-                # just a dummy logging of rewards.
                 a3c_logger.info(f"Local episode: {self.local_episode}, accumulated rewards: {self.accum_rewards}")
         if last_terminal:
-            self.scores.append(self.accum_rewards)
-            self.episodes.append(self.local_episode)
-            self.accum_rewards = 0
+            self.update_results()
 
     def sync_models(self):
+        self.lock.acquire()
         # take weights from global models and assign them to workers models
         self.Actor.set_model_from_global(self.globalA3C.Actor.model)
         self.Critic.set_model_from_global(self.globalA3C.Critic.model)
+        self.lock.release()
 
     def run(self):
         state = self.env.reset()  # reset env and get initial state
@@ -111,7 +113,12 @@ class A3CWorker:
                 state = next_state
                 self.step += 1
 
-            self.update_global_models(states, actions, rewards, last_state=state, last_terminal=is_terminal)
+            # replay experience backwards and compute gradients
+            self.compute_gradients(states, actions, rewards, last_state=state, last_terminal=is_terminal)
+            self.lock.acquire()
+            self.update_global_models()
+            self.globalA3C.episode += 1
+            self.lock.release()
 
             if is_terminal:
                 state = self.env.reset()  # reset env and get initial state
