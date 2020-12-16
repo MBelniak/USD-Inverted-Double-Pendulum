@@ -106,8 +106,8 @@ class A3CWorker:
 
             while not is_terminal and self.step - step_start < self.step_max:
                 states.append(state)  # register current state
-                action = self.Actor.get_action(t(state))  # draw action
-                next_state, reward, is_terminal, info = self.env.step(action.detach().data.numpy())  # perform action
+                action = self.Actor.draw_action(t(state))  # draw action
+                next_state, reward, is_terminal, info = self.env.step(action)  # perform action
                 actions.append(action)  # register action
                 rewards.append(reward)  # register reward
                 state = next_state

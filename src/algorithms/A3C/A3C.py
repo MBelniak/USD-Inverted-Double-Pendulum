@@ -170,7 +170,7 @@ class A3C:
             done = False
             score = 0
             while not done:
-                action = self.Actor.get_action(t(state))
+                action = self.Actor.get_best_action(t(state))
                 state, reward, done, _ = self.env.step(action)
                 score += reward
                 if done:
@@ -189,7 +189,7 @@ class A3C:
             score = 0
             while not done:
                 self.env.render()
-                action = self.Actor.get_action(t(state))
+                action = self.Actor.get_best_action(t(state))
                 state, reward, done, _ = self.env.step(action)
                 score += reward
                 if done:

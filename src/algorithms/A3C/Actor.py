@@ -31,13 +31,18 @@ class Actor:
         alpha, beta = self.model(state)
         return alpha + 1, beta + 1
 
-    def get_action(self, state):
+    def draw_action(self, state):
         # Use the actor's network to predict the next action to take, using its model
         # beta is better than Gaussian for a bounded action space: http://proceedings.mlr.press/v70/chou17a/chou17a.pdf
         alpha, beta = self.predict(state)
         dist = torch.distributions.Beta(alpha, beta)  # Add 1 to alpha and beta to ensure alpha, beta >=1
         action = self.beta_to_action(dist.sample())
-        return action
+        return action.detach().data.numpy()
+
+    def get_best_action(self, state):
+        alpha, beta = self.predict(state)
+        argmax = (alpha - 1) / (alpha + beta - 2)
+        return self.beta_to_action(argmax.detach().data.numpy())
 
     # two functions below: scale and move beta distribution as action space is non-symmetrical.
     def action_to_beta(self, action):
