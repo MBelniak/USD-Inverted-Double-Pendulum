@@ -76,7 +76,7 @@ class A3CWorker:
             critic_loss = critic_loss + advantage.pow(2).mean()
             # accumulate actor loss - we maximize the rewards, thus we take negation of gradient.
             # Adam opt. then negates it again, so weights are updated in a way which makes advantages higher
-            actor_loss = actor_loss - dist.log_prob(self.Actor.action_to_beta(actions[i])) * advantage.detach()
+            actor_loss = actor_loss - dist.log_prob(self.Actor.action_to_beta(t(actions[i]))) * advantage.detach()
 
         # compute gradients wrt. weights
         actor_loss.backward()
