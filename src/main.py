@@ -56,7 +56,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-render', help='Render environment.', action='store_true')
-    parser.add_argument('--algorithm', help='Algorithm to use.', default='A3C')
+    parser.add_argument('--algorithm', help='Algorithm to use.', default='A3C', choices=['A3C', 'Q'])
     parser.add_argument('--load_file', help='Custom filename from which to load weights before rendering.', default=None)
     parser.add_argument('--threads', help='Number of threads for A3C.', type=int, default=5)
     parser.add_argument('--episodes', help='Number of episodes.', type=int, default=100000)
