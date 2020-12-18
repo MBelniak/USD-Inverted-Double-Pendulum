@@ -84,7 +84,7 @@ class A3CWorker:
 
         if self.log_info:
             if last_terminal:
-                a3c_logger.info(f"Local episode: {self.local_episode}, accumulated rewards: {self.accum_rewards}")
+                a3c_logger.info(f"Local episode: {self.local_episode}, global episode: {self.globalA3C.episode}, accumulated rewards: {self.accum_rewards}")
         if last_terminal:
             self.update_results()
 

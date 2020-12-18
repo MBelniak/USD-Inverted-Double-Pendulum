@@ -16,11 +16,11 @@ class Actor:
 
     def create_model(self):
         model = nn.Sequential(
-            nn.Linear(self.state_space.shape[0], 64),
+            nn.Linear(self.state_space.shape[0], 32),
             nn.Sigmoid(),
-            nn.Linear(64, 32),
+            nn.Linear(32, 16),
             nn.Sigmoid(),
-            nn.Linear(32, self.model_output_dim),
+            nn.Linear(16, self.model_output_dim),
             nn.Softplus()
         )
         a3c_logger.info(model)
