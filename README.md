@@ -1,7 +1,7 @@
 # USD-Inverted-Double-Pendulum
 QLearning and A3C algorithms on InvertedDoublePendulum-v2 from OpenAI Gym.
 
-[](videos/GIF_18-12-2020_17-15-36.gif)
+![Model preformance with A3C](videos/GIF_18-12-2020_17-15-36.gif)
 
 ### Requirements:
 Mujoco (1.50 for Windows) from [https://www.roboti.us/index.html](https://www.roboti.us/index.html)
