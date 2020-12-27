@@ -4,7 +4,8 @@ import time
 
 from algorithms.A3C.A3C import A3C, get_default_save_filename
 from algorithms.A3C.A3CWorker import A3CWorker
-
+import algorithms.DDQN.DDQN as DDQN
+from utils import ENV_NAME
 
 def trainA3C(globalA3C: A3C, n_threads, no_log):
     # Instantiate one worker per thread
@@ -56,7 +57,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-render', help='Render environment.', action='store_true')
-    parser.add_argument('--algorithm', help='Algorithm to use.', default='A3C', choices=['A3C', 'Q'])
+    parser.add_argument('--algorithm', help='Algorithm to use.', default='Q', choices=['A3C', 'Q'])
     parser.add_argument('--load_file', help='Custom filename from which to load weights before rendering.', default=None)
     parser.add_argument('--threads', help='Number of threads for A3C.', type=int, default=5)
     parser.add_argument('--episodes', help='Number of episodes.', type=int, default=100000)
@@ -78,6 +79,9 @@ def main():
         agent = A3C(max_episodes=args.episodes, discount_rate=args.discount, step_max=args.step_max,
                     actor_lr=args.actor_lr, critic_lr=args.critic_lr, n_threads=args.threads)
         trainA3C(agent, args.threads, args.no_log)
+    elif args.algorithm is 'Q':
+        DDQN.main(env_name=ENV_NAME)
+        # DDQN.main()
 
 
 if __name__ == "__main__":
