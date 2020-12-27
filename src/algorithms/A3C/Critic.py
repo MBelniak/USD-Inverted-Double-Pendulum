@@ -18,12 +18,13 @@ class Critic:
             nn.ReLU(),
             nn.Linear(32, 1)
         )
+        model.cuda()
         a3c_logger.info(model)
 
         return model
 
     def predict(self, state):
-        return self.model(state)
+        return self.model(state.cuda())
 
     def set_model_from_global(self, global_model):
         self.model.load_state_dict(global_model.state_dict())

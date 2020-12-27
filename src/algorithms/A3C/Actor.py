@@ -23,12 +23,13 @@ class Actor:
             nn.Linear(16, self.model_output_dim),
             nn.Softplus()
         )
+        model.cuda()
         a3c_logger.info(model)
 
         return model
 
     def predict(self, state):
-        alpha, beta = self.model(state)
+        alpha, beta = self.model(state.cuda())
         return alpha + 1, beta + 1
 
     def draw_action(self, state):
@@ -51,7 +52,7 @@ class Actor:
 
     def beta_to_action(self, beta_sample):
         low_boundary, high_boundary = self.action_space.low, self.action_space.high
-        return beta_sample * (high_boundary - low_boundary) + low_boundary
+        return beta_sample.cpu() * (high_boundary - low_boundary) + low_boundary
 
     def set_model_from_global(self, global_model):
         self.model.load_state_dict(global_model.state_dict())
