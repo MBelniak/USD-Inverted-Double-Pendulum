@@ -80,8 +80,7 @@ def main():
                     actor_lr=args.actor_lr, critic_lr=args.critic_lr, n_threads=args.threads)
         trainA3C(agent, args.threads, args.no_log)
     elif args.algorithm is 'Q':
-        DDQN.main(env_name=ENV_NAME)
-        # DDQN.main()
+        DDQN.main(env_name=ENV_NAME, render=args.render)
 
 
 if __name__ == "__main__":
