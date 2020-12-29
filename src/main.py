@@ -4,7 +4,7 @@ import time
 
 from algorithms.A3C.A3C import A3C, get_default_save_filename
 from algorithms.A3C.A3CWorker import A3CWorker
-import algorithms.DDQN.DDQN as DDQN
+from algorithms.DDQN.DDQN import DDQN
 from utils import ENV_NAME
 
 def trainA3C(globalA3C: A3C, n_threads, no_log):
@@ -80,7 +80,8 @@ def main():
                     actor_lr=args.actor_lr, critic_lr=args.critic_lr, n_threads=args.threads)
         trainA3C(agent, args.threads, args.no_log)
     elif args.algorithm is 'Q':
-        DDQN.main(env_name=ENV_NAME)
+        ddqn = DDQN()
+        ddqn.run(env_name=ENV_NAME)
 
 
 if __name__ == "__main__":
