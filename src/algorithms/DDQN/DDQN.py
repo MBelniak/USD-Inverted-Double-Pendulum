@@ -52,8 +52,8 @@ class DDQN():
 
     def __init__(self, gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.999, eps_min=0.01, update_step=10,
                  batch_size=64, update_repeats=50,
-                 num_episodes=10000, seed=42, max_memory_size=50000, lr_gamma=0.9, lr_step=100, measure_step=50,
-                 measure_repeats=100, hidden_dim=64, env_name='InvertedDoublePendulum-v2', horizon=np.inf, render=False,
+                 num_episodes=10000, seed=42, max_memory_size=50000, lr_gamma=0.9, lr_step=100, measure_step=100,
+                 measure_repeats=20, hidden_dim=64, env_name='InvertedDoublePendulum-v2', horizon=np.inf, render=False,
                  render_step=50, num_actions=100):
 
         self.gamma = gamma
@@ -166,8 +166,10 @@ class DDQN():
                 state, reward, done, _ = env.step(self.discretized_actions[action])
                 perform += reward
             scores.append([e, perform])
+
+        scores = np.array(scores)
         Qmodel.train()
-        return perform / repeats, scores
+        return scores[:,1].mean(), scores
 
     def update_parameters(self, current_model, target_model):
         target_model.load_state_dict(current_model.state_dict())
@@ -224,7 +226,7 @@ class DDQN():
 
             self.eps = max(self.eps * self.eps_decay, self.eps_min)
 
-        return self.primary_q, performance
+        return self.primary_q, np.array(performance)
 
     def render(self):
         scores = []
@@ -245,13 +247,12 @@ class DDQN():
         return scores
 
     def plot(self, plot_dir, performance):
-        performance_array = np.array(performance)
         os.makedirs(plot_dir, exist_ok=True)
         fig, ax = plt.subplots(figsize=(18, 9))
         ax.set_title(f"Scores until terminal state", fontsize=24)
         ax.set_xlabel("Episode", fontsize=22)
         ax.set_ylabel("Score", fontsize=22)
-        ax.plot(performance_array[:,0], performance_array[:,1], 'o')
+        ax.plot(performance[:,0], performance[:,1], 'o')
         ax.set_ylim(ymin=0)
         ax.set_xlim(xmin=0)
         fig.savefig(plot_dir + f"/test.png")
