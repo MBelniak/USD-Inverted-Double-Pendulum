@@ -34,31 +34,6 @@ class QNetwork(nn.Module):
 
 
 """
-If the observations are images we use CNNs.
-"""
-class QNetworkCNN(nn.Module):
-    def __init__(self, action_dim):
-        super(QNetworkCNN, self).__init__()
-
-        self.conv_1 = nn.Conv2d(3, 32, kernel_size=8, stride=4)
-        self.conv_2 = nn.Conv2d(32, 64, kernel_size=4, stride=3)
-        self.conv_3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        self.fc_1 = nn.Linear(8960, 512)
-        self.fc_2 = nn.Linear(512, action_dim)
-
-    def forward(self, inp):
-        inp = inp.view((1, 3, 210, 160))
-        x1 = F.relu(self.conv_1(inp))
-        x1 = F.relu(self.conv_2(x1))
-        x1 = F.relu(self.conv_3(x1))
-        x1 = torch.flatten(x1, 1)
-        x1 = F.leaky_relu(self.fc_1(x1))
-        x1 = self.fc_2(x1)
-
-        return x1
-
-
-"""
 memory to save the state, action, reward sequence from the current episode. 
 """
 class Memory:
@@ -154,9 +129,9 @@ def update_parameters(current_model, target_model):
     target_model.load_state_dict(current_model.state_dict())
 
 
-def main(gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.995, eps_min=0.01, update_step=10, batch_size=64, update_repeats=50,
-         num_episodes=3000, seed=42, max_memory_size=50000, lr_gamma=0.9, lr_step=100, measure_step=100,
-         measure_repeats=100, hidden_dim=64, env_name='InvertedDoublePendulum-v2', cnn=False, horizon=np.inf, render=True, render_step=50, num_actions = 100):
+def main(gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.999, eps_min=0.01, update_step=10, batch_size=64, update_repeats=50,
+         num_episodes=100000, seed=42, max_memory_size=50000, lr_gamma=0.9, lr_step=100, measure_step=500,
+         measure_repeats=100, hidden_dim=64, env_name='InvertedDoublePendulum-v2', horizon=np.inf, render=False, render_step=50, num_actions = 100):
     """
     :param gamma: reward discount factor
     :param lr: learning rate for the Q-Network
@@ -190,14 +165,12 @@ def main(gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.995, eps_min=0
     global discretized_actions
     discretized_actions = [(((env.action_space.high[0] - env.action_space.low[0]) * i/(num_actions -1)) - 1) for i in range(num_actions)]
 
-    if cnn:
-        Q_1 = QNetworkCNN(action_dim=env.action_space.n).to(device)
-        Q_2 = QNetworkCNN(action_dim=env.action_space.n).to(device)
-    else:
-        Q_1 = QNetwork(action_dim=num_actions, state_dim=env.observation_space.shape[0],
-                                        hidden_dim=hidden_dim).to(device)
-        Q_2 = QNetwork(action_dim=num_actions, state_dim=env.observation_space.shape[0],
-                                        hidden_dim=hidden_dim).to(device)
+
+    Q_1 = QNetwork(action_dim=num_actions, state_dim=env.observation_space.shape[0],
+                                    hidden_dim=hidden_dim).to(device)
+    Q_2 = QNetwork(action_dim=num_actions, state_dim=env.observation_space.shape[0],
+                                    hidden_dim=hidden_dim).to(device)
+
     # transfer parameters from Q_1 to Q_2
     update_parameters(Q_1, Q_2)
 
@@ -206,7 +179,6 @@ def main(gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.995, eps_min=0
         param.requires_grad = False
 
     optimizer = torch.optim.Adam(Q_1.parameters(), lr=lr)
-    scheduler = StepLR(optimizer, step_size=lr_step, gamma=lr_gamma)
 
     memory = Memory(max_memory_size)
     performance = []
@@ -217,7 +189,6 @@ def main(gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.995, eps_min=0
             performance.append([episode, evaluate(Q_1, env, measure_repeats)])
             print("Episode: ", episode)
             print("rewards: ", performance[-1][1])
-            print("lr: ", scheduler.get_lr()[0])
             print("eps: ", eps)
 
         state = env.reset()
@@ -247,8 +218,7 @@ def main(gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.995, eps_min=0
             # transfer new parameter from Q_1 to Q_2
             update_parameters(Q_1, Q_2)
 
-        # update learning rate and eps
-        scheduler.step()
+
         eps = max(eps*eps_decay, eps_min)
 
     return Q_1, performance

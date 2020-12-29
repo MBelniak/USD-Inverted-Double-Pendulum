@@ -81,7 +81,6 @@ def main():
         trainA3C(agent, args.threads, args.no_log)
     elif args.algorithm is 'Q':
         DDQN.main(env_name=ENV_NAME)
-        # DDQN.main()
 
 
 if __name__ == "__main__":
