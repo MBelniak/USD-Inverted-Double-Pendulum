@@ -85,7 +85,7 @@ class A3C:
     """
     def plot_workers(self, plot_dir):
         fig, ax_gather = plt.subplots(figsize=(18, 9))
-        ax_gather.set_title("Scores until terminal state for all threads.", fontsize=24)
+        ax_gather.set_title("Scores until terminal state during training for all threads.", fontsize=24)
         ax_gather.set_xlabel("Local episode", fontsize=22)
         ax_gather.set_ylabel("Score", fontsize=22)
 
@@ -97,9 +97,23 @@ class A3C:
         fig.savefig(plot_dir + "/gathered.png")
         plt.close(fig)
 
+        fig, ax_gather = plt.subplots(figsize=(18, 9))
+        ax_gather.set_title("Scores until terminal state during evaluation.", fontsize=24)
+        ax_gather.set_xlabel("Local episode", fontsize=22)
+        ax_gather.set_ylabel("Score", fontsize=22)
+
+        for worker in self.workers:
+            if worker.eval_repeats != 0:
+                ax_gather.plot(worker.eval_episodes, worker.eval_av_scores, 'o')
+
+        ax_gather.set_ylim(ymin=0)
+        ax_gather.set_xlim(xmin=0)
+        fig.savefig(plot_dir + "/eval_gathered.png")
+        plt.close(fig)
+
         for i in range(len(self.workers)):
             fig, ax = plt.subplots(figsize=(18, 9))
-            ax.set_title(f"Scores until terminal state for thread {i + 1}", fontsize=24)
+            ax.set_title(f"Scores until terminal state during training for thread {i + 1}", fontsize=24)
             ax.set_xlabel("Local episode", fontsize=22)
             ax.set_ylabel("Score", fontsize=22)
             ax.plot(self.workers[i].episodes, self.workers[i].scores)

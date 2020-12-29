@@ -7,13 +7,10 @@ from algorithms.A3C.A3CWorker import A3CWorker
 import algorithms.DDQN.DDQN as DDQN
 from utils import ENV_NAME
 
-def trainA3C(globalA3C: A3C, n_threads, no_log):
+def trainA3C(globalA3C: A3C, n_threads, no_log, eval_repeats):
     # Instantiate one worker per thread
-    if not no_log:
-        workers = [A3CWorker(globalA3C) for _ in range(n_threads - 1)]
-        workers.append(A3CWorker(globalA3C, log_info=True))
-    else:
-        workers = [A3CWorker(globalA3C) for _ in range(n_threads)]
+    workers = [A3CWorker(globalA3C) for _ in range(n_threads - 1)]
+    workers.append(A3CWorker(globalA3C, log_info=not no_log, eval_repeats=eval_repeats))
 
     globalA3C.set_workers(workers)
     globalA3C.env.close()
@@ -65,21 +62,23 @@ def main():
     parser.add_argument('--step_max', help='Max steps before update.', type=int, default=5)
     parser.add_argument('--actor_lr', help='Actor learning rate.', type=float, default=0.001)
     parser.add_argument('--critic_lr', help='Critic learning rate.', type=float, default=0.001)
+    parser.add_argument('--eval_repeats', help='Number of evaluations for performance tracking.'
+                                               ' Set to 0 to disable.', type=int, default=20)
     parser.add_argument('-no_log', help='Disable logging during training.', action='store_true')
     args = parser.parse_args()
 
     if args.render:
-        if args.algorithm is "A3C":
+        if args.algorithm == "A3C":
             renderA3C(**vars(args))
         else:
             renderQ(**vars(args))
 
-    elif args.algorithm is 'A3C':
+    elif args.algorithm == 'A3C':
         # Create global actor-critic holding main models
         agent = A3C(max_episodes=args.episodes, discount_rate=args.discount, step_max=args.step_max,
                     actor_lr=args.actor_lr, critic_lr=args.critic_lr, n_threads=args.threads)
-        trainA3C(agent, args.threads, args.no_log)
-    elif args.algorithm is 'Q':
+        trainA3C(agent, args.threads, args.no_log, args.eval_repeats)
+    elif args.algorithm == 'Q':
         DDQN.main(env_name=ENV_NAME, render=args.render)
 
 
