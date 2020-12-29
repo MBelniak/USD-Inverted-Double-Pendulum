@@ -88,8 +88,10 @@ def main():
                     actor_lr=args.actor_lr, critic_lr=args.critic_lr, n_threads=args.threads)
         trainA3C(agent, args.threads, args.no_log)
     elif args.algorithm is 'DDQN':
-        ddqn = DDQN()
-        ddqn.run()
+        ddqn = DDQN(num_episodes=500)
+        model, performance = ddqn.run()
+        ddqn.plot("training", performance)
+        ddqn.test()
         ddqn.save_models()
 
 if __name__ == "__main__":

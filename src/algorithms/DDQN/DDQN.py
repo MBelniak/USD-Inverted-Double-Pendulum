@@ -10,6 +10,7 @@ from torch.optim.lr_scheduler import StepLR
 from algorithms.DDQN.Memory import Memory
 from algorithms.DDQN.QNetwork import QNetwork
 from utils import ensure_unique_path, get_default_save_filename
+from matplotlib import pyplot as plt
 
 """
 Implementation of Double DQN for gym environments with discrete action space.
@@ -51,7 +52,7 @@ class DDQN():
 
     def __init__(self, gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.999, eps_min=0.01, update_step=10,
                  batch_size=64, update_repeats=50,
-                 num_episodes=10000, seed=42, max_memory_size=50000, lr_gamma=0.9, lr_step=100, measure_step=500,
+                 num_episodes=10000, seed=42, max_memory_size=50000, lr_gamma=0.9, lr_step=100, measure_step=50,
                  measure_repeats=100, hidden_dim=64, env_name='InvertedDoublePendulum-v2', horizon=np.inf, render=False,
                  render_step=50, num_actions=100):
 
@@ -96,10 +97,10 @@ class DDQN():
             file_name = f"DDQN-{self.num_episodes}"
 
         checkpoint = torch.load(f"{SAVE_DIR}/{file_name}")
-        self.primary_q.model.load_state_dict(checkpoint['primary_q'])
-        self.target_q.model.load_state_dict(checkpoint['target_q'])
-        self.primary_q.model.eval()
-        self.target_q.model.eval()
+        self.primary_q.load_state_dict(checkpoint['primary_q'])
+        self.target_q.load_state_dict(checkpoint['target_q'])
+        self.primary_q.eval()
+        self.target_q.eval()
 
     def save_models(self, file_name=None):
         if file_name == None:
@@ -110,8 +111,8 @@ class DDQN():
         path = ensure_unique_path(path)
 
         torch.save({
-            'primary_q': self.primary_q.model.state_dict(),
-            'target_q': self.target_q.model.state_dict(),
+            'primary_q': self.primary_q.state_dict(),
+            'target_q': self.target_q.state_dict(),
         }, path)
 
     def select_action(self, model, state, eps):
@@ -152,10 +153,11 @@ class DDQN():
         episode reward.
         """
         Qmodel.eval()
-        perform = 0
-        for _ in range(repeats):
+        scores = []
+        for e in range(repeats):
             state = env.reset()
             done = False
+            perform = 0
             while not done:
                 state = torch.Tensor(state).to(device)
                 with torch.no_grad():
@@ -163,8 +165,9 @@ class DDQN():
                 action = np.argmax(values.cpu().numpy())
                 state, reward, done, _ = env.step(self.discretized_actions[action])
                 perform += reward
+            scores.append([e, perform])
         Qmodel.train()
-        return perform / repeats
+        return perform / repeats, scores
 
     def update_parameters(self, current_model, target_model):
         target_model.load_state_dict(current_model.state_dict())
@@ -186,7 +189,8 @@ class DDQN():
         for episode in range(self.num_episodes):
             # display the performance
             if episode % self.measure_step == 0:
-                performance.append([episode, self.evaluate(self.primary_q, self.env, self.measure_repeats)])
+                mean, _ = self.evaluate(self.primary_q, self.env, self.measure_repeats)
+                performance.append([episode, mean])
                 print("Episode: ", episode)
                 print("rewards: ", performance[-1][1])
                 print("eps: ", self.eps)
@@ -198,9 +202,8 @@ class DDQN():
             i = 0
             while not done:
                 i += 1
-                action = self.select_action(self.target_q,  state, self.eps)
+                action = self.select_action(self.target_q, state, self.eps)
                 state, reward, done, _ = self.env.step(self.discretized_actions[action])
-
                 if i > self.horizon:
                     done = True
 
@@ -210,6 +213,7 @@ class DDQN():
 
                 # save state, action, reward sequence
                 memory.update(state, action, reward, done)
+
 
             if episode >= self.min_episodes and episode % self.update_step == 0:
                 for _ in range(self.update_repeats):
@@ -223,6 +227,7 @@ class DDQN():
         return self.primary_q, performance
 
     def render(self):
+        scores = []
         for e in range(10):
             state = self.env.reset()
             done = False
@@ -235,7 +240,26 @@ class DDQN():
                 if done:
                     print("episode: {}, score: {}".format(e, score))
                     break
-        self.env.close()
+            scores.append(score)
+            self.env.close()
+        return scores
+
+    def plot(self, plot_dir, performance):
+        performance_array = np.array(performance)
+        os.makedirs(plot_dir, exist_ok=True)
+        fig, ax = plt.subplots(figsize=(18, 9))
+        ax.set_title(f"Scores until terminal state", fontsize=24)
+        ax.set_xlabel("Episode", fontsize=22)
+        ax.set_ylabel("Score", fontsize=22)
+        ax.plot(performance_array[:,0], performance_array[:,1], 'o')
+        ax.set_ylim(ymin=0)
+        ax.set_xlim(xmin=0)
+        fig.savefig(plot_dir + f"/test.png")
+        plt.close(fig)
+
+    def test(self):
+        _, rewards = self.evaluate(self.primary_q, self.env, 50)
+        self.plot("test", rewards)
 
 
 if __name__ == '__main__':
