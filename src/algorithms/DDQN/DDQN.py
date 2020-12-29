@@ -1,3 +1,5 @@
+import os
+
 import gym
 import torch
 import numpy as np
@@ -7,12 +9,16 @@ from torch.optim.lr_scheduler import StepLR
 
 from algorithms.DDQN.Memory import Memory
 from algorithms.DDQN.QNetwork import QNetwork
+from utils import ensure_unique_path, get_default_save_filename
 
 """
 Implementation of Double DQN for gym environments with discrete action space.
 """
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+SAVE_DIR = "saved_models"
+PLOTS_DIR = "plots"
 
 
 class DDQN():
@@ -42,15 +48,16 @@ class DDQN():
     :param render_step: see above
     :return: the trained Q-Network and the measured performances
     """
+
     def __init__(self, gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.999, eps_min=0.01, update_step=10,
-            batch_size=64, update_repeats=50,
-            num_episodes=100000, seed=42, max_memory_size=50000, lr_gamma=0.9, lr_step=100, measure_step=500,
-            measure_repeats=100, hidden_dim=64, env_name='InvertedDoublePendulum-v2', horizon=np.inf, render=False,
-            render_step=50, num_actions=100):
+                 batch_size=64, update_repeats=50,
+                 num_episodes=10000, seed=42, max_memory_size=50000, lr_gamma=0.9, lr_step=100, measure_step=500,
+                 measure_repeats=100, hidden_dim=64, env_name='InvertedDoublePendulum-v2', horizon=np.inf, render=False,
+                 render_step=50, num_actions=100):
 
         self.gamma = gamma
         self.lr = lr
-        self.min_episodes= min_episodes
+        self.min_episodes = min_episodes
         self.eps = eps
         self.eps_decay = eps_decay
         self.eps_min = eps_min
@@ -67,7 +74,7 @@ class DDQN():
         self.hidden_dim = hidden_dim
         self.env_name = env_name
         self.horizon = horizon
-        self.render = render
+        self.do_render = render
         self.render_step = render_step
         self.num_actions = num_actions
 
@@ -75,35 +82,58 @@ class DDQN():
         torch.manual_seed(seed)
         self.env.seed(seed)
 
-        self.discretized_actions = [(((self.env.action_space.high[0] - self.env.action_space.low[0]) * i / (num_actions - 1)) - 1)
-                                    for i in range(num_actions)]
+        self.discretized_actions = [
+            (((self.env.action_space.high[0] - self.env.action_space.low[0]) * i / (num_actions - 1)) - 1)
+            for i in range(num_actions)]
 
-        self.Q_1 = QNetwork(action_dim=num_actions, state_dim=self.env.observation_space.shape[0],
-                       hidden_dim=hidden_dim).to(device)
-        self.Q_2 = QNetwork(action_dim=num_actions, state_dim=self.env.observation_space.shape[0],
-                       hidden_dim=hidden_dim).to(device)
+        self.primary_q = QNetwork(action_dim=num_actions, state_dim=self.env.observation_space.shape[0],
+                                  hidden_dim=hidden_dim).to(device)
+        self.target_q = QNetwork(action_dim=num_actions, state_dim=self.env.observation_space.shape[0],
+                                 hidden_dim=hidden_dim).to(device)
 
+    def load_models(self, file_name=None):
+        if file_name == None:
+            file_name = f"DDQN-{self.num_episodes}"
 
-    def select_action(self, model, env, state, eps, num_actions):
+        checkpoint = torch.load(f"{SAVE_DIR}/{file_name}")
+        self.primary_q.model.load_state_dict(checkpoint['primary_q'])
+        self.target_q.model.load_state_dict(checkpoint['target_q'])
+        self.primary_q.model.eval()
+        self.target_q.model.eval()
+
+    def save_models(self, file_name=None):
+        if file_name == None:
+            file_name = f"DDQN-{self.num_episodes}"
+
+        os.makedirs(SAVE_DIR, exist_ok=True)
+        path = SAVE_DIR + "/" + file_name
+        path = ensure_unique_path(path)
+
+        torch.save({
+            'primary_q': self.primary_q.model.state_dict(),
+            'target_q': self.target_q.model.state_dict(),
+        }, path)
+
+    def select_action(self, model, state, eps):
         state = torch.Tensor(state).to(device)
         with torch.no_grad():
             values = model(state)
 
         # select a random action wih probability eps
         if random.random() <= eps:
-            action = np.random.randint(0, num_actions)
+            action = np.random.randint(0, self.num_actions)
         else:
             action = np.argmax(values.cpu().numpy())
 
         return action
 
-    def train(self, batch_size, current, target, optim, memory, gamma):
+    def train(self, batch_size, primary, target, optim, memory, gamma):
 
         states, actions, next_states, rewards, is_done = memory.sample(batch_size)
 
-        q_values = current(states)
+        q_values = primary(states)
 
-        next_q_values = current(next_states)
+        next_q_values = primary(next_states)
         next_q_state_values = target(next_states)
 
         q_value = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
@@ -142,13 +172,13 @@ class DDQN():
     def run(self):
 
         # transfer parameters from Q_1 to Q_2
-        self.update_parameters(self.Q_1, self.Q_2)
+        self.update_parameters(self.primary_q, self.target_q)
 
         # we only train Q_1
-        for param in self.Q_2.parameters():
+        for param in self.target_q.parameters():
             param.requires_grad = False
 
-        optimizer = torch.optim.Adam(self.Q_1.parameters(), lr=self.lr)
+        optimizer = torch.optim.Adam(self.primary_q.parameters(), lr=self.lr)
 
         memory = Memory(self.max_memory_size)
         performance = []
@@ -156,7 +186,7 @@ class DDQN():
         for episode in range(self.num_episodes):
             # display the performance
             if episode % self.measure_step == 0:
-                performance.append([episode, self.evaluate(self.Q_1, self.env, self.measure_repeats)])
+                performance.append([episode, self.evaluate(self.primary_q, self.env, self.measure_repeats)])
                 print("Episode: ", episode)
                 print("rewards: ", performance[-1][1])
                 print("eps: ", self.eps)
@@ -168,14 +198,14 @@ class DDQN():
             i = 0
             while not done:
                 i += 1
-                action = self.select_action(self.Q_2, self.env, state, self.eps, self.num_actions)
+                action = self.select_action(self.target_q,  state, self.eps)
                 state, reward, done, _ = self.env.step(self.discretized_actions[action])
 
                 if i > self.horizon:
                     done = True
 
                 # render the environment if render == True
-                if self.render and episode % self.render_step == 0:
+                if self.do_render and episode % self.render_step == 0:
                     self.env.render()
 
                 # save state, action, reward sequence
@@ -183,14 +213,29 @@ class DDQN():
 
             if episode >= self.min_episodes and episode % self.update_step == 0:
                 for _ in range(self.update_repeats):
-                    self.train(self.batch_size, self.Q_1, self.Q_2, optimizer, memory, self.gamma)
+                    self.train(self.batch_size, self.primary_q, self.target_q, optimizer, memory, self.gamma)
 
                 # transfer new parameter from Q_1 to Q_2
-                self.update_parameters(self.Q_1, self.Q_2)
+                self.update_parameters(self.primary_q, self.target_q)
 
             self.eps = max(self.eps * self.eps_decay, self.eps_min)
 
-        return self.Q_1, performance
+        return self.primary_q, performance
+
+    def render(self):
+        for e in range(10):
+            state = self.env.reset()
+            done = False
+            score = 0
+            while not done:
+                self.env.render()
+                action = self.select_action(self.primary_q, state, 0, )
+                state, reward, done, _ = self.env.step(self.discretized_actions[action])
+                score += reward
+                if done:
+                    print("episode: {}, score: {}".format(e, score))
+                    break
+        self.env.close()
 
 
 if __name__ == '__main__':

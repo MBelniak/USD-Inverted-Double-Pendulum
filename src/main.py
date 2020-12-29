@@ -49,15 +49,23 @@ def renderA3C(**kwargs):
     agent.render()
 
 
-def renderQ(**kwargs):
-    pass  # TODO
+def renderDDQN(**kwargs):
+    agent = DDQN()
+
+    if kwargs['load_file'] is None:
+        parameters_file = f"DDQN-{agent.num_episodes}"
+    else:
+        parameters_file = kwargs['load_file']
+
+    agent.load_models(parameters_file)
+    agent.render()
 
 
 def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-render', help='Render environment.', action='store_true')
-    parser.add_argument('--algorithm', help='Algorithm to use.', default='Q', choices=['A3C', 'Q'])
+    parser.add_argument('--algorithm', help='Algorithm to use.', default='DDQN', choices=['A3C', 'DDQN'])
     parser.add_argument('--load_file', help='Custom filename from which to load weights before rendering.', default=None)
     parser.add_argument('--threads', help='Number of threads for A3C.', type=int, default=5)
     parser.add_argument('--episodes', help='Number of episodes.', type=int, default=100000)
@@ -72,17 +80,17 @@ def main():
         if args.algorithm is "A3C":
             renderA3C(**vars(args))
         else:
-            renderQ(**vars(args))
+            renderDDQN(**vars(args))
 
     elif args.algorithm is 'A3C':
         # Create global actor-critic holding main models
         agent = A3C(max_episodes=args.episodes, discount_rate=args.discount, step_max=args.step_max,
                     actor_lr=args.actor_lr, critic_lr=args.critic_lr, n_threads=args.threads)
         trainA3C(agent, args.threads, args.no_log)
-    elif args.algorithm is 'Q':
+    elif args.algorithm is 'DDQN':
         ddqn = DDQN()
         ddqn.run()
-
+        ddqn.save_models()
 
 if __name__ == "__main__":
     main()
