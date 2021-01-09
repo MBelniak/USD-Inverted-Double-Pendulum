@@ -3,13 +3,13 @@ import os
 import gym
 import torch
 import numpy as np
-from torch import device
 import random
-from torch.optim.lr_scheduler import StepLR
 
 from algorithms.DDQN.Memory import Memory
 from algorithms.DDQN.QNetwork import QNetwork
-from utils import ensure_unique_path, get_default_save_filename
+from algorithms.Model import Model
+from logger.logger import dqn_logger
+from utils import ensure_unique_path, ENV_NAME
 from matplotlib import pyplot as plt
 
 """
@@ -22,7 +22,7 @@ SAVE_DIR = "saved_models"
 PLOTS_DIR = "plots"
 
 
-class DDQN():
+class DDQN(Model):
     """
     :param gamma: reward discount factor
     :param lr: learning rate for the Q-Network
@@ -34,7 +34,7 @@ class DDQN():
     batch of size "batch_size" from the memory.
     :param batch_size: see above
     :param update_repeats: see above
-    :param num_episodes: the number of episodes played in total
+    :param max_episodes: the number of episodes played in total
     :param seed: random seed for reproducibility
     :param max_memory_size: size of the replay memory
     :param lr_gamma: learning rate decay for the Q-Network
@@ -43,21 +43,18 @@ class DDQN():
     :param measure_repeats: the amount of episodes played in to asses performance
     :param hidden_dim: hidden dimensions for the Q_network
     :param env_name: name of the gym environment
-    :param cnn: set to "True" when using environments with image observations like "Pong-v0"
     :param horizon: number of steps taken in the environment before terminating the episode (prevents very long episodes)
     :param render: if "True" renders the environment every "render_step" episodes
     :param render_step: see above
     :return: the trained Q-Network and the measured performances
     """
-
     def __init__(self, gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.999, eps_min=0.01, update_step=10,
-                 batch_size=64, update_repeats=50,
-                 num_episodes=10000, seed=42, max_memory_size=50000, lr_gamma=0.9, lr_step=100, measure_step=100,
-                 measure_repeats=20, hidden_dim=64, env_name='InvertedDoublePendulum-v2', horizon=np.inf, render=False,
-                 render_step=50, num_actions=100):
-
+                 batch_size=64, update_repeats=50, max_episodes=10000, seed=42, max_memory_size=50000, lr_gamma=0.9,
+                 lr_step=100, measure_step=100, measure_repeats=20, hidden_dim=64, env_name=ENV_NAME,
+                 horizon=np.inf, render=False, render_step=50, num_actions=100):
+        super().__init__()
         self.gamma = gamma
-        self.lr = lr
+        self.learning_rate = lr
         self.min_episodes = min_episodes
         self.eps = eps
         self.eps_decay = eps_decay
@@ -65,7 +62,7 @@ class DDQN():
         self.update_step = update_step
         self.batch_size = batch_size
         self.update_repeats = update_repeats
-        self.num_episodes = num_episodes
+        self.max_episodes = max_episodes
         self.seed = seed
         self.max_memory_size = max_memory_size
         self.lr_gamma = lr_gamma
@@ -94,7 +91,7 @@ class DDQN():
 
     def load_models(self, file_name=None):
         if file_name == None:
-            file_name = f"DDQN-{self.num_episodes}"
+            file_name = f"DDQN-{self.max_episodes}"
 
         checkpoint = torch.load(f"{SAVE_DIR}/{file_name}")
         self.primary_q.load_state_dict(checkpoint['primary_q'])
@@ -104,7 +101,7 @@ class DDQN():
 
     def save_models(self, file_name=None):
         if file_name == None:
-            file_name = f"DDQN-{self.num_episodes}"
+            file_name = f"DDQN-{self.max_episodes}"
 
         os.makedirs(SAVE_DIR, exist_ok=True)
         path = SAVE_DIR + "/" + file_name
@@ -147,35 +144,35 @@ class DDQN():
         loss.backward()
         optim.step()
 
-    def evaluate(self, Qmodel, env, repeats):
+    def evaluate(self, eval_repeats):
         """
         Runs a greedy policy with respect to the current Q-Network for "repeats" many episodes. Returns the average
         episode reward.
         """
-        Qmodel.eval()
+        self.primary_q.eval()
         scores = []
-        for e in range(repeats):
-            state = env.reset()
+        for e in range(eval_repeats):
+            state = self.env.reset()
             done = False
             perform = 0
             while not done:
                 state = torch.Tensor(state).to(device)
                 with torch.no_grad():
-                    values = Qmodel(state)
+                    values = self.primary_q(state)
                 action = np.argmax(values.cpu().numpy())
-                state, reward, done, _ = env.step(self.discretized_actions[action])
+                state, reward, done, _ = self.env.step(self.discretized_actions[action])
                 perform += reward
+
             scores.append([e, perform])
 
         scores = np.array(scores)
-        Qmodel.train()
+        self.primary_q.train()
         return scores[:,1].mean(), scores
 
     def update_parameters(self, current_model, target_model):
         target_model.load_state_dict(current_model.state_dict())
 
     def run(self):
-
         # transfer parameters from Q_1 to Q_2
         self.update_parameters(self.primary_q, self.target_q)
 
@@ -183,19 +180,17 @@ class DDQN():
         for param in self.target_q.parameters():
             param.requires_grad = False
 
-        optimizer = torch.optim.Adam(self.primary_q.parameters(), lr=self.lr)
+        optimizer = torch.optim.Adam(self.primary_q.parameters(), lr=self.learning_rate)
 
         memory = Memory(self.max_memory_size)
-        performance = []
+        self.performance = []
 
-        for episode in range(self.num_episodes):
+        for episode in range(self.max_episodes):
             # display the performance
             if episode % self.measure_step == 0:
-                mean, _ = self.evaluate(self.primary_q, self.env, self.measure_repeats)
-                performance.append([episode, mean])
-                print("Episode: ", episode)
-                print("rewards: ", performance[-1][1])
-                print("eps: ", self.eps)
+                mean, _ = self.evaluate(self.measure_repeats)
+                self.performance.append([episode, mean])
+                dqn_logger.info(f"\nEpisode: {episode}\nMean accumulated reward: {mean}\neps: {self.eps}")
 
             state = self.env.reset()
             memory.state.append(state)
@@ -226,7 +221,7 @@ class DDQN():
 
             self.eps = max(self.eps * self.eps_decay, self.eps_min)
 
-        return self.primary_q, np.array(performance)
+        return np.array(self.performance)
 
     def render(self):
         scores = []
@@ -240,27 +235,51 @@ class DDQN():
                 state, reward, done, _ = self.env.step(self.discretized_actions[action])
                 score += reward
                 if done:
-                    print("episode: {}, score: {}".format(e, score))
+                    dqn_logger.info("episode: {}, score: {}".format(e, score))
                     break
             scores.append(score)
             self.env.close()
         return scores
 
-    def plot(self, plot_dir, performance):
+    def get_plot_dir(self, subdir):
+        plot_dir = PLOTS_DIR + "/" + subdir
+        plot_dir = ensure_unique_path(plot_dir)
         os.makedirs(plot_dir, exist_ok=True)
+
+        return plot_dir
+
+    """
+            Plots average of accumulated rewards over certain amount of repetitions in a training phase.
+    """
+    def plot_training(self, performance):
+        plot_dir = self.get_plot_dir("training")
         fig, ax = plt.subplots(figsize=(18, 9))
-        ax.set_title(f"Scores until terminal state", fontsize=24)
+        ax.set_title(f"Performance in a training phase - accumulated rewards until a terminal state", fontsize=24)
         ax.set_xlabel("Episode", fontsize=22)
-        ax.set_ylabel("Score", fontsize=22)
-        ax.plot(performance[:,0], performance[:,1], 'o')
+        ax.set_ylabel("Mean accumulated rewards ", fontsize=22)
+        ax.plot(performance[:, 0], performance[:, 1], 'o')
+        ax.set_ylim(ymin=0)
+        ax.set_xlim(xmin=0)
+        fig.savefig(plot_dir + f"/training.png")
+        plt.close(fig)
+
+    """
+            Plots accumulated rewards from start until a terminal state in a test phase.
+    """
+    def plot_test(self, performance):
+        plot_dir = self.get_plot_dir("test")
+        fig, ax = plt.subplots(figsize=(18, 9))
+        ax.set_title(f"Performance in a test phase - accumulated rewards until a terminal state", fontsize=24)
+        ax.set_xlabel("Run", fontsize=22)
+        ax.set_ylabel("Accumulated rewards", fontsize=22)
+        ax.plot(performance[:, 0], performance[:, 1], 'o')
         ax.set_ylim(ymin=0)
         ax.set_xlim(xmin=0)
         fig.savefig(plot_dir + f"/test.png")
         plt.close(fig)
 
     def test(self):
-        _, rewards = self.evaluate(self.primary_q, self.env, 50)
-        self.plot("test", rewards)
+        return np.array(self.evaluate(50)[1])
 
 
 if __name__ == '__main__':

@@ -1,5 +1,4 @@
 import torch
-from algorithms.A3C.A3C import A3C
 from logger.logger import a3c_logger
 from utils import ENV_NAME, t
 from algorithms.A3C.Actor import Actor
@@ -16,24 +15,26 @@ def ensure_shared_grads(model, shared_model):
 
 
 class A3CWorker:
+    globalA3C = None
+
     # A3C worker (thread)
-    # globalA3C is a parent object holding global actor and critic models
-    def __init__(self, globalA3C: A3C, log_info=False):
+    def __init__(self, global_lock, max_episodes=100000, discount_rate=0.99, step_max=5, measure_step=100,
+                 log_info=False, eval_repeats=0):
         # Environment and PPO parameters
         self.env = gym.make(ENV_NAME)
-        self.globalA3C = globalA3C
         self.action_space = self.env.action_space
-        self.MAX_EPISODES = globalA3C.MAX_EPISODES
-        self.lock = globalA3C.lock
-        self.discount_rate = globalA3C.discount_rate
+        self.MAX_EPISODES = max_episodes
+        self.lock = global_lock
+        self.discount_rate = discount_rate
+        self.eval_repeats = eval_repeats
         self.step = 1
         # just for logging and plotting rewards. Incremented after achieving terminal state,
         self.local_episode = 0
-        self.step_max = globalA3C.step_max
+        self.step_max = step_max
         self.log_info = log_info
+        self.measure_step = measure_step
         # Instantiate plot memory
-        # not used too much for now
-        self.scores, self.episodes, self.accum_rewards = [], [], 0
+        self.performance, self.eval_episodes, self.accum_rewards = [], [], 0
 
         # Create Actor-Critic network models
         self.Actor = Actor(state_space=self.env.observation_space, action_space=self.action_space)
@@ -41,9 +42,11 @@ class A3CWorker:
         self.Actor.model.train()
         self.Critic.model.train()
 
-    def update_results(self):
-        self.scores.append(self.accum_rewards)
-        self.episodes.append(self.local_episode)
+    def set_global_model(self, global_model):
+        self.globalA3C = global_model
+
+    def update_local_results(self):
+        self.performance.append([self.local_episode, self.accum_rewards])
         self.accum_rewards = 0
 
     def update_global_models(self):
@@ -54,7 +57,7 @@ class A3CWorker:
         self.globalA3C.Critic.optimizer.step()
         self.globalA3C.Actor.optimizer.step()
 
-    def compute_gradients(self, states, actions, rewards, last_state, last_terminal: bool):
+    def replay_steps(self, states, actions, rewards, last_state, last_terminal: bool):
         # get predicted reward for the last state - we didn't do action in that state
         R = 0 if last_terminal else self.Critic.predict(t(last_state))
         # reset gradients for optimizers
@@ -82,12 +85,6 @@ class A3CWorker:
         actor_loss.backward()
         critic_loss.backward()
 
-        if self.log_info:
-            if last_terminal:
-                a3c_logger.info(f"Local episode: {self.local_episode}, global episode: {self.globalA3C.episode}, accumulated rewards: {self.accum_rewards}")
-        if last_terminal:
-            self.update_results()
-
     def sync_models(self):
         self.lock.acquire()
         # take weights from global models and assign them to workers models
@@ -96,6 +93,9 @@ class A3CWorker:
         self.lock.release()
 
     def run(self):
+        if self.globalA3C is None:
+            raise Exception("Global model is not set! Please call set_global_model(global_model) to set the parent model.")
+
         state = self.env.reset()  # reset env and get initial state
         while self.globalA3C.episode < self.MAX_EPISODES:
             # reset stuff
@@ -114,13 +114,20 @@ class A3CWorker:
                 self.step += 1
 
             # replay experience backwards and compute gradients
-            self.compute_gradients(states, actions, rewards, last_state=state, last_terminal=is_terminal)
+            self.replay_steps(states, actions, rewards, last_state=state, last_terminal=is_terminal)
             self.lock.acquire()
             self.update_global_models()
             self.globalA3C.episode += 1
+            if self.globalA3C.episode % 100 == 0 and self.eval_repeats != 0:
+                mean, _ = self.globalA3C.evaluate(self.eval_repeats)
+                self.globalA3C.performance.append([self.globalA3C.episode, mean])
+                if self.log_info:
+                    a3c_logger.info(f"\nEpisode: {self.globalA3C.episode}\nMean accumulated rewards: {mean}")
+
             self.lock.release()
 
             if is_terminal:
+                self.update_local_results()
                 state = self.env.reset()  # reset env and get initial state
                 self.local_episode += 1
 
