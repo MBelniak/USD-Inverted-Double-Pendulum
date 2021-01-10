@@ -12,5 +12,11 @@ class Model(object):
     def run(self):
         raise NotImplementedError('subclasses must override run()!')
 
-    def plot(self, subdir, performance):
-        raise NotImplementedError('subclasses must override plot(subdir, performance)!')
+    def plot_training(self, performance):
+        raise NotImplementedError('subclasses must override plot_training(performance)!')
+
+    def plot_test(self, performance):
+        raise NotImplementedError('subclasses must override plot_test(performance)!')
+
+    def save_models(self, file_name):
+        raise NotImplementedError('subclasses must override save_models(file_name)!')

@@ -100,7 +100,7 @@ class DDQN(Model):
         self.target_q.eval()
 
     def save_models(self, file_name=None):
-        if file_name == None:
+        if file_name is None:
             file_name = f"DDQN-{self.max_episodes}"
 
         os.makedirs(SAVE_DIR, exist_ok=True)

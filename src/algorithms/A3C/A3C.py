@@ -64,11 +64,14 @@ class A3C(Model):
         self.Actor.model.eval()
         self.Critic.model.eval()
 
-    def save_models(self):
+    def save_models(self, file_name=None):
         os.makedirs(SAVE_DIR, exist_ok=True)
-        path = SAVE_DIR + "/" + get_default_save_filename(self.max_episodes, self.n_threads, self.discount_rate,
-                                                          self.step_max,
-                                                          self.actor_learning_rate, self.critic_learning_rate)
+        path = SAVE_DIR + "/" + file_name if file_name is not None else get_default_save_filename(self.max_episodes,
+                                                                                                  self.n_threads,
+                                                                                                  self.discount_rate,
+                                                                                                  self.step_max,
+                                                                                                  self.actor_learning_rate,
+                                                                                                  self.critic_learning_rate)
         path = ensure_unique_path(path)
 
         torch.save({
@@ -163,6 +166,7 @@ class A3C(Model):
     """
             Plots average of accumulated rewards over certain amount of repetitions in a training phase.
     """
+
     def plot_training(self, performance):
         plot_dir = self.get_plot_dir("training")
         fig, ax = plt.subplots(figsize=(18, 9))
@@ -178,6 +182,7 @@ class A3C(Model):
     """
             Plots accumulated rewards from start until a terminal state in a test phase.
     """
+
     def plot_test(self, performance):
         plot_dir = self.get_plot_dir("test")
         fig, ax = plt.subplots(figsize=(18, 9))
@@ -195,6 +200,7 @@ class A3C(Model):
         Creates one plot for each thread + one plot with all threads together.
         In addition, creates one plot of moving average for each thread + moving average of average over threads
     """
+
     def plot_workers(self):
         plot_dir = self.get_plot_dir("workers")
 
