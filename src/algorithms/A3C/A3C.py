@@ -26,7 +26,7 @@ class A3C(Model):
 
     # Actor-Critic Main Optimization Algorithm
     def __init__(self, max_episodes=100000, discount_rate=0.99, step_max=5, actor_lr=0.001, critic_lr=0.001,
-                 n_threads=5, measure_step=100, eval_repeats=20, no_log=True):
+                 n_threads=5, measure_step=1000, eval_repeats=20, no_log=True):
         super().__init__()
         self.env = gym.make(ENV_NAME)
         self.action_space = self.env.action_space
@@ -121,7 +121,7 @@ class A3C(Model):
                 state, reward, done, _ = self.env.step(action)
                 performance += reward
 
-            scores.append([ep, performance])
+            scores.append([ep + 1, performance])
 
         scores = np.array(scores)
         self.Actor.model.train()

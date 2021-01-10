@@ -38,7 +38,7 @@ def main():
     parser.add_argument('--actor_lr', help='Actor learning rate.', type=float, default=0.001)
     parser.add_argument('--critic_lr', help='Critic learning rate.', type=float, default=0.001)
     parser.add_argument('--eval_repeats', help='Number of evaluation runs in one performance evaluation.'
-                                               ' Set to 0 to disable.', type=int, default=20)
+                                               ' Set to 0 to disable.', type=int, default=10)
     parser.add_argument('-no_log', help='Disable logging during training.', action='store_true')
     args = parser.parse_args()
 

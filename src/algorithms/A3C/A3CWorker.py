@@ -45,6 +45,9 @@ class A3CWorker:
 
     def set_global_model(self, global_model):
         self.globalA3C = global_model
+        self.lock.acquire()
+        self.sync_models()
+        self.lock.release()
 
     def update_local_results(self):
         self.performance.append([self.local_episode, self.accum_rewards])
@@ -97,10 +100,6 @@ class A3CWorker:
 
         state = self.env.reset()  # reset env and get initial state
 
-        self.lock.acquire()
-        self.sync_models()
-        self.lock.release()
-
         while self.globalA3C.episode < self.MAX_EPISODES:
             # reset stuff
             is_terminal, saving = False, ''
@@ -127,7 +126,9 @@ class A3CWorker:
 
             if episode % 100 == 0 and self.eval_repeats != 0:
                 mean, _ = self.evaluate(self.eval_repeats)
+                self.lock.acquire()
                 self.globalA3C.performance.append([episode, mean])
+                self.lock.release()
                 if self.log_info:
                     a3c_logger.info(f"\nEpisode: {episode}\nMean accumulated rewards: {mean}")
 
@@ -151,7 +152,7 @@ class A3CWorker:
                 state, reward, done, _ = self.env.step(action)
                 performance += reward
 
-            scores.append([ep, performance])
+            scores.append([ep + 1, performance])
 
         scores = np.array(scores)
         self.Actor.model.train()
