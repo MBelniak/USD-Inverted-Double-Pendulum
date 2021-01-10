@@ -37,7 +37,7 @@ def main():
     parser.add_argument('--step_max', help='Max steps before update.', type=int, default=5)
     parser.add_argument('--actor_lr', help='Actor learning rate.', type=float, default=0.001)
     parser.add_argument('--critic_lr', help='Critic learning rate.', type=float, default=0.001)
-    parser.add_argument('--eval_repeats', help='Number of evaluations for performance tracking.'
+    parser.add_argument('--eval_repeats', help='Number of evaluation runs in one performance evaluation.'
                                                ' Set to 0 to disable.', type=int, default=20)
     parser.add_argument('-no_log', help='Disable logging during training.', action='store_true')
     args = parser.parse_args()
@@ -56,7 +56,7 @@ def main():
                         eval_repeats=args.eval_repeats, no_log=args.no_log)
 
         else:
-            agent = DDQN(max_episodes=args.episodes, max_memory_size=5000)
+            agent = DDQN(max_episodes=args.episodes, max_memory_size=50000)
 
         performance = agent.run()
         agent.plot_training(performance)

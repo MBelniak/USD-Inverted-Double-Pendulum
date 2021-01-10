@@ -1,5 +1,5 @@
 # USD-Inverted-Double-Pendulum
-QLearning and A3C algorithms on InvertedDoublePendulum-v2 from OpenAI Gym.
+Double deep QLearning and A3C algorithms on InvertedDoublePendulum-v2 from OpenAI Gym.
 
 ![Model preformance with A3C](videos/GIF_18-12-2020_17-15-36.gif)
 
@@ -16,10 +16,10 @@ Run it from `src` directory:
 ```
 python main.py
 ```
-for training with default parameters.
+for training with default parameters. Default algorithm is DDQN.
 
 ##### Available parameters:
-  `--algorithm {A3C,Q}`   Algorithm to use.
+  `--algorithm {A3C,DDQN}`   Algorithm to use.
 
   `--load_file LOAD_FILE` Custom filename from which to load models before rendering.<br>
   By default, trained models are saved to file `<algorithm>--<episodes>-<threads>-<discount>-<step_max>-<actor_lr>-<critic_lr>`<br>
@@ -36,6 +36,8 @@ for training with default parameters.
   `--actor_lr ACTOR_LR`  Actor's learning rate.
 
   `--critic_lr CRITIC_LR` Critic's learning rate.
+
+  `--eval_repeats EVAL_REPEATS` Number of evaluation runs in one performance evaluation. Set to 0 to disable evaluation during training.
 
   `-no_log`  Disable logging during training.
 
