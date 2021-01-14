@@ -66,12 +66,12 @@ class A3C(Model):
 
     def save_models(self, file_name=None):
         os.makedirs(SAVE_DIR, exist_ok=True)
-        path = SAVE_DIR + "/" + file_name if file_name is not None else get_default_save_filename(self.max_episodes,
+        path = SAVE_DIR + "/" + (file_name if file_name is not None else get_default_save_filename(self.max_episodes,
                                                                                                   self.n_threads,
                                                                                                   self.discount_rate,
                                                                                                   self.step_max,
                                                                                                   self.actor_learning_rate,
-                                                                                                  self.critic_learning_rate)
+                                                                                                  self.critic_learning_rate))
         path = ensure_unique_path(path)
 
         torch.save({
@@ -97,7 +97,6 @@ class A3C(Model):
             daemon=True) for i in range(self.n_threads)]
 
         for t in threads:
-            time.sleep(2)
             t.start()
 
         while self.episode < self.max_episodes:
@@ -117,7 +116,8 @@ class A3C(Model):
             done = False
             performance = 0
             while not done:
-                action = self.Actor.get_best_action(t(state))
+                with torch.no_grad():
+                    action = self.Actor.get_best_action(t(state))
                 state, reward, done, _ = self.env.step(action)
                 performance += reward
 

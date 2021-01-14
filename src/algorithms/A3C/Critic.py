@@ -25,6 +25,6 @@ class Critic:
     def predict(self, state):
         return self.model(state)
 
-    def set_model_from_global(self, global_model):
-        self.model.load_state_dict(global_model.state_dict())
+    def set_model(self, model):
+        self.model.load_state_dict(model.state_dict())
 

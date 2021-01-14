@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import numpy as np
 import torch
 from logger.logger import a3c_logger
@@ -19,12 +21,12 @@ class A3CWorker:
     globalA3C = None
 
     # A3C worker (thread)
-    def __init__(self, global_lock, max_episodes=100000, discount_rate=0.99, step_max=5, measure_step=100,
-                 log_info=False, eval_repeats=0):
+    def __init__(self, global_lock, max_episodes=100000, discount_rate=0.99, step_max=5, actor_lr=0.001, critic_lr=0.001,
+                 measure_step=100, log_info=False, eval_repeats=0):
         # Environment and PPO parameters
         self.env = gym.make(ENV_NAME)
         self.action_space = self.env.action_space
-        self.MAX_EPISODES = max_episodes
+        self.max_episodes = max_episodes
         self.lock = global_lock
         self.discount_rate = discount_rate
         self.eval_repeats = eval_repeats
@@ -38,8 +40,8 @@ class A3CWorker:
         self.performance, self.eval_episodes, self.accum_rewards = [], [], 0
 
         # Create Actor-Critic network models
-        self.Actor = Actor(state_space=self.env.observation_space, action_space=self.action_space)
-        self.Critic = Critic(state_space=self.env.observation_space)
+        self.Actor = Actor(state_space=self.env.observation_space, learning_rate=actor_lr, action_space=self.action_space)
+        self.Critic = Critic(state_space=self.env.observation_space, learning_rate=critic_lr)
         self.Actor.model.train()
         self.Critic.model.train()
 
@@ -50,7 +52,7 @@ class A3CWorker:
         self.lock.release()
 
     def update_local_results(self):
-        self.performance.append([self.local_episode, self.accum_rewards])
+        self.performance.append([self.local_episode + 1, self.accum_rewards])
         self.accum_rewards = 0
 
     def update_global_models(self):
@@ -63,7 +65,7 @@ class A3CWorker:
 
     def replay_steps(self, states, actions, rewards, last_state, last_terminal: bool):
         # get predicted reward for the last state - we didn't do action in that state
-        R = 0 if last_terminal else self.Critic.predict(t(last_state))
+        R = 0 if last_terminal and rewards[-1] < 9 else self.Critic.predict(t(last_state))
         # reset gradients for optimizers
         self.Actor.optimizer.zero_grad()
         self.Critic.optimizer.zero_grad()
@@ -91,18 +93,18 @@ class A3CWorker:
 
     def sync_models(self):
         # take weights from global models and assign them to workers models
-        self.Actor.set_model_from_global(self.globalA3C.Actor.model)
-        self.Critic.set_model_from_global(self.globalA3C.Critic.model)
+        self.Actor.set_model(self.globalA3C.Actor.model)
+        self.Critic.set_model(self.globalA3C.Critic.model)
 
     def run(self):
         if self.globalA3C is None:
             raise Exception("Global model is not set! Please call set_global_model(global_model) to set the parent model.")
 
         state = self.env.reset()  # reset env and get initial state
-
-        while self.globalA3C.episode < self.MAX_EPISODES:
+        episode = 0
+        while episode < self.max_episodes:
             # reset stuff
-            is_terminal, saving = False, ''
+            is_terminal = False
             states, actions, rewards = [], [], []
             step_start = self.step
 
@@ -124,9 +126,9 @@ class A3CWorker:
             episode = self.globalA3C.episode
             self.lock.release()
 
-            if episode % 100 == 0 and self.eval_repeats != 0:
-                mean, _ = self.evaluate(self.eval_repeats)
+            if episode % self.measure_step == 0 and self.eval_repeats != 0:
                 self.lock.acquire()
+                mean, _ = self.evaluate(self.eval_repeats)
                 self.globalA3C.performance.append([episode, mean])
                 self.lock.release()
                 if self.log_info:
@@ -143,13 +145,15 @@ class A3CWorker:
         self.Actor.model.eval()
         self.Critic.model.eval()
         scores = []
+        env = gym.make(ENV_NAME)
         for ep in range(eval_repeats):
-            state = self.env.reset()
+            state = env.reset()
             done = False
             performance = 0
             while not done:
-                action = self.Actor.get_best_action(t(state))
-                state, reward, done, _ = self.env.step(action)
+                with torch.no_grad():
+                    action = self.Actor.get_best_action(t(state))
+                state, reward, done, _ = env.step(action)
                 performance += reward
 
             scores.append([ep + 1, performance])

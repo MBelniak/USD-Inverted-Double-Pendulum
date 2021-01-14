@@ -53,5 +53,5 @@ class Actor:
         low_boundary, high_boundary = self.action_space.low, self.action_space.high
         return beta_sample * (high_boundary - low_boundary) + low_boundary
 
-    def set_model_from_global(self, global_model):
-        self.model.load_state_dict(global_model.state_dict())
+    def set_model(self, model):
+        self.model.load_state_dict(model.state_dict())
