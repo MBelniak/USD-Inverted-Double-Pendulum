@@ -24,70 +24,44 @@ PLOTS_DIR = "plots"
 
 class DDQN(Model):
     """
-    :param gamma: reward discount factor
-    :param lr: learning rate for the Q-Network
-    :param min_episodes: we wait "min_episodes" many episodes in order to aggregate enough data before starting to train
-    :param eps: probability to take a random action during training
-    :param eps_decay: after every episode "eps" is multiplied by "eps_decay" to reduces exploration over time
-    :param eps_min: minimal value of "eps"
-    :param update_step: after "update_step" many episodes the Q-Network is trained "update_repeats" many times with a
-    batch of size "batch_size" from the memory.
-    :param batch_size: see above
-    :param update_repeats: see above
-    :param max_episodes: the number of episodes played in total
-    :param seed: random seed for reproducibility
-    :param max_memory_size: size of the replay memory
-    :param lr_gamma: learning rate decay for the Q-Network
-    :param lr_step: every "lr_step" episodes we decay the learning rate
-    :param measure_step: every "measure_step" episode the performance is measured
-    :param measure_repeats: the amount of episodes played in to asses performance
-    :param hidden_dim: hidden dimensions for the Q_network
-    :param env_name: name of the gym environment
-    :param horizon: number of steps taken in the environment before terminating the episode (prevents very long episodes)
-    :param render: if "True" renders the environment every "render_step" episodes
-    :param render_step: see above
     :return: the trained Q-Network and the measured performances
     """
-    def __init__(self, gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.999, eps_min=0.01, update_step=10,
-                 batch_size=64, update_repeats=50, max_episodes=10000, seed=42, max_memory_size=50000, lr_gamma=0.9,
-                 lr_step=100, measure_step=100, measure_repeats=20, hidden_dim=64, env_name=ENV_NAME,
-                 horizon=np.inf, render=False, render_step=50, num_actions=100):
+    def __init__(self, kwargs):
         super().__init__()
-        self.gamma = gamma
-        self.learning_rate = lr
-        self.min_episodes = min_episodes
-        self.eps = eps
-        self.eps_decay = eps_decay
-        self.eps_min = eps_min
-        self.update_step = update_step
-        self.batch_size = batch_size
-        self.update_repeats = update_repeats
-        self.max_episodes = max_episodes
-        self.seed = seed
-        self.max_memory_size = max_memory_size
-        self.lr_gamma = lr_gamma
-        self.lr_step = lr_step
-        self.measure_step = measure_step
-        self.measure_repeats = measure_repeats
-        self.hidden_dim = hidden_dim
-        self.env_name = env_name
-        self.horizon = horizon
-        self.do_render = render
-        self.render_step = render_step
-        self.num_actions = num_actions
+        self.gamma = kwargs['gamma']
+        self.learning_rate = kwargs['lr']
+        self.min_episodes = kwargs['min_episodes']
+        self.eps = kwargs['eps']
+        self.eps_decay = kwargs['eps_decay']
+        self.eps_min = kwargs['eps_min']
+        self.update_step = kwargs['update_step']
+        self.batch_size = kwargs['batch_size']
+        self.update_repeats = kwargs['update_repeats']
+        self.max_episodes = kwargs['episodes']
+        self.seed = kwargs['seed']
+        self.max_memory_size = kwargs['max_memory_size']
+        self.lr_gamma = kwargs['lr_gamma']
+        self.lr_step = kwargs['lr_step']
+        self.measure_step = kwargs['measure_step']
+        self.measure_repeats = kwargs['measure_repeats']
+        self.hidden_dim = kwargs['hidden_dim']
+        self.horizon = kwargs['horizon']
+        self.do_render = kwargs['render']
+        self.render_step = kwargs['render_step']
+        self.num_actions = kwargs['num_actions']
 
-        self.env = gym.make(env_name)
-        torch.manual_seed(seed)
-        self.env.seed(seed)
+        self.env = gym.make(ENV_NAME)
+        torch.manual_seed(self.seed)
+        self.env.seed(self.seed)
 
         self.discretized_actions = [
-            (((self.env.action_space.high[0] - self.env.action_space.low[0]) * i / (num_actions - 1)) - 1)
-            for i in range(num_actions)]
+            (((self.env.action_space.high[0] - self.env.action_space.low[0]) * i / (self.num_actions - 1)) - 1)
+            for i in range(self.num_actions)]
 
-        self.primary_q = QNetwork(action_dim=num_actions, state_dim=self.env.observation_space.shape[0],
-                                  hidden_dim=hidden_dim).to(device)
-        self.target_q = QNetwork(action_dim=num_actions, state_dim=self.env.observation_space.shape[0],
-                                 hidden_dim=hidden_dim).to(device)
+        self.primary_q = QNetwork(action_dim=self.num_actions, state_dim=self.env.observation_space.shape[0],
+                                  hidden_dim=self.hidden_dim).to(device)
+        self.target_q = QNetwork(action_dim=self.num_actions, state_dim=self.env.observation_space.shape[0],
+                                 hidden_dim=self.hidden_dim).to(device)
 
     def load_models(self, file_name=None):
         if file_name == None:
@@ -280,8 +254,3 @@ class DDQN(Model):
 
     def test(self):
         return np.array(self.evaluate(50)[1])
-
-
-if __name__ == '__main__':
-    ddqn = DDQN()
-    ddqn.run()
