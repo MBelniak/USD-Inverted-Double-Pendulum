@@ -40,8 +40,6 @@ class DDQN(Model):
         self.max_episodes = kwargs['episodes']
         self.seed = kwargs['seed']
         self.max_memory_size = kwargs['max_memory_size']
-        self.lr_gamma = kwargs['lr_gamma']
-        self.lr_step = kwargs['lr_step']
         self.measure_step = kwargs['measure_step']
         self.measure_repeats = kwargs['measure_repeats']
         self.hidden_dim = kwargs['hidden_dim']
@@ -49,7 +47,7 @@ class DDQN(Model):
         self.do_render = kwargs['render']
         self.render_step = kwargs['render_step']
         self.num_actions = kwargs['num_actions']
-
+        self.load_file = kwargs['load_file']
         self.env = gym.make(ENV_NAME)
         torch.manual_seed(self.seed)
         self.env.seed(self.seed)
@@ -62,6 +60,9 @@ class DDQN(Model):
                                   hidden_dim=self.hidden_dim).to(device)
         self.target_q = QNetwork(action_dim=self.num_actions, state_dim=self.env.observation_space.shape[0],
                                  hidden_dim=self.hidden_dim).to(device)
+
+        if(self.load_file != None):
+            self.load_models(self.load_file)
 
     def load_models(self, file_name=None):
         if file_name == None:
