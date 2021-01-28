@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 import numpy as np
 import torch
 from logger.logger import a3c_logger
@@ -23,8 +21,8 @@ class A3CWorker:
     # A3C worker (thread)
     def __init__(self, global_lock, max_episodes=100000, discount_rate=0.99, step_max=5, actor_lr=0.001, critic_lr=0.001,
                  measure_step=100, log_info=False, eval_repeats=0):
-        # Environment and PPO parameters
         self.env = gym.make(ENV_NAME)
+        self.env.dt = self.env.unwrapped.dt / 2
         self.action_space = self.env.action_space
         self.max_episodes = max_episodes
         self.lock = global_lock
@@ -38,6 +36,7 @@ class A3CWorker:
         self.measure_step = measure_step
         # Instantiate plot memory
         self.performance, self.eval_episodes, self.accum_rewards = [], [], 0
+        self.advantages = []
 
         # Create Actor-Critic network models
         self.Actor = Actor(state_space=self.env.observation_space, learning_rate=actor_lr, action_space=self.action_space)
@@ -59,6 +58,8 @@ class A3CWorker:
         # assign gradients of workers' models to global models
         ensure_shared_grads(self.Actor.model, self.globalA3C.Actor.model)
         ensure_shared_grads(self.Critic.model, self.globalA3C.Critic.model)
+        #torch.nn.utils.clip_grad_value_(self.globalA3C.Actor.model.parameters(), 0.01)
+        #torch.nn.utils.clip_grad_value_(self.globalA3C.Critic.model.parameters(), 5)
         # update weights using these gradients
         self.globalA3C.Critic.optimizer.step()
         self.globalA3C.Actor.optimizer.step()
@@ -118,7 +119,7 @@ class A3CWorker:
                 self.step += 1
 
             # replay experience backwards and compute gradients
-            self.replay_steps(states, actions, rewards, last_state=state, last_terminal=is_terminal)
+            self.replay_steps(states, actions, rewards, state, is_terminal)
             self.lock.acquire()
             self.update_global_models()
             self.sync_models()
@@ -146,6 +147,7 @@ class A3CWorker:
         self.Critic.model.eval()
         scores = []
         env = gym.make(ENV_NAME)
+        env.dt = env.unwrapped.dt / 2
         for ep in range(eval_repeats):
             state = env.reset()
             done = False

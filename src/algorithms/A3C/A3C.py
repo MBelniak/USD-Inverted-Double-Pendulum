@@ -29,6 +29,7 @@ class A3C(Model):
                  n_threads=5, measure_step=1000, eval_repeats=20, no_log=True):
         super().__init__()
         self.env = gym.make(ENV_NAME)
+        self.env.dt = self.env.unwrapped.dt / 2
         self.action_space = self.env.action_space
         self.action_size = self.action_space.shape[0]
         self.max_episodes, self.episode = max_episodes, 0

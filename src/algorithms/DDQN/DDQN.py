@@ -24,7 +24,7 @@ PLOTS_DIR = "plots"
 
 class DDQN(Model):
     """
-    :param gamma: reward discount factor
+    :param discount_rate: reward discount factor
     :param lr: learning rate for the Q-Network
     :param min_episodes: we wait "min_episodes" many episodes in order to aggregate enough data before starting to train
     :param eps: probability to take a random action during training
@@ -48,12 +48,12 @@ class DDQN(Model):
     :param render_step: see above
     :return: the trained Q-Network and the measured performances
     """
-    def __init__(self, gamma=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.999, eps_min=0.01, update_step=10,
+    def __init__(self, discount_rate=0.99, lr=1e-3, min_episodes=20, eps=1, eps_decay=0.999, eps_min=0.01, update_step=10,
                  batch_size=64, update_repeats=50, max_episodes=10000, seed=42, max_memory_size=50000, lr_gamma=0.9,
                  lr_step=100, measure_step=100, measure_repeats=20, hidden_dim=64, env_name=ENV_NAME,
                  horizon=np.inf, render=False, render_step=50, num_actions=100):
         super().__init__()
-        self.gamma = gamma
+        self.discount_rate = discount_rate
         self.learning_rate = lr
         self.min_episodes = min_episodes
         self.eps = eps
@@ -125,7 +125,7 @@ class DDQN(Model):
 
         return action
 
-    def train(self, batch_size, primary, target, optim, memory, gamma):
+    def train(self, batch_size, primary, target, optim, memory, discount_rate):
 
         states, actions, next_states, rewards, is_done = memory.sample(batch_size)
 
@@ -136,7 +136,7 @@ class DDQN(Model):
 
         q_value = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
         next_q_value = next_q_state_values.gather(1, torch.max(next_q_values, 1)[1].unsqueeze(1)).squeeze(1)
-        expected_q_value = rewards + gamma * next_q_value * (1 - is_done)
+        expected_q_value = rewards + discount_rate * next_q_value * (1 - is_done)
 
         loss = (q_value - expected_q_value.detach()).pow(2).mean()
 
@@ -214,7 +214,7 @@ class DDQN(Model):
 
             if episode >= self.min_episodes and episode % self.update_step == 0:
                 for _ in range(self.update_repeats):
-                    self.train(self.batch_size, self.primary_q, self.target_q, optimizer, memory, self.gamma)
+                    self.train(self.batch_size, self.primary_q, self.target_q, optimizer, memory, self.discount_rate)
 
                 # transfer new parameter from Q_1 to Q_2
                 self.update_parameters(self.primary_q, self.target_q)
