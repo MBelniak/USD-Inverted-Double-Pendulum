@@ -9,7 +9,7 @@ def renderA3C(**kwargs):
                                                     kwargs['step_max'], kwargs['actor_lr'], kwargs['critic_lr'])
     else:
         parameters_file = kwargs['load_file']
-    agent = A3C()
+    agent = A3C(kwargs)
     agent.load_models(parameters_file)
     agent.render()
 
@@ -32,7 +32,8 @@ def main():
     parser.add_argument('-render', help='Render environment.', action='store_true')
     parser.add_argument('--algorithm', help='Algorithm to use.', default='DDQN', choices=['A3C', 'DDQN'])
     parser.add_argument('--load_file', help='Custom filename from which to load weights before rendering.', default=None)
-    parser.add_argument('--episodes', help='Number of episodes for DDQN(run from beginning to terminal state).', type=int, default=10000)
+    parser.add_argument('--episodes', help='Number of episodes for DDQN (run from beginning to terminal state).',
+                        type=int, default=10000)
 #A3C pararms
     parser.add_argument('--threads', help='Number of threads for A3C.', type=int, default=5)
     parser.add_argument('--discount', help='Discount rate.', type=float, default=0.99)
@@ -45,11 +46,15 @@ def main():
 #DDQN paramrs
     parser.add_argument('--discount_rate', help='reward discount factor.', type=float, default=0.99)
     parser.add_argument('--lr', help='learning rate.', type=float, default=0.001)
-    parser.add_argument('--min_episodes', help='We wait "min_episodes" many episodes in order to aggregate enough data before starting to train', type=int, default=20)
+    parser.add_argument('--min_episodes', help='We wait "min_episodes" many episodes in order to aggregate enough data'
+                                               ' before starting to train', type=int, default=20)
     parser.add_argument('--eps', help='probability to take a random action during training', type=float, default=1)
-    parser.add_argument('--eps_decay', help='after every episode "eps" is multiplied by "eps_decay" to reduces exploration over time', type=float, default=0.99)
+    parser.add_argument('--eps_decay', help='after every episode "eps" is multiplied by "eps_decay" to reduces '
+                                            'exploration over time', type=float, default=0.99)
     parser.add_argument('--eps_min', help='minimal value of "eps"', type=float, default=0.01)
-    parser.add_argument('--update_step', help='after "update_step" many episodes the Q-Network is trained "update_repeats" many times with a batch of size "batch_size" from the memory.', type=int, default=10)
+    parser.add_argument('--update_step', help='after "update_step" many episodes the Q-Network is trained '
+                                              '"update_repeats" many times with a batch of size "batch_size" from the'
+                                              ' memory.', type=int, default=10)
     parser.add_argument('--batch_size', help='see above', type=int, default=64)
     parser.add_argument('--update_repeats', help='see above', type=int, default=50)
     parser.add_argument('--seed', help='random seed for reproducibility', type=int, default=42)
@@ -57,7 +62,8 @@ def main():
     parser.add_argument('--measure_step', help='every "measure_step" episode the performance is measured', type=int, default=100)
     parser.add_argument('--measure_repeats', help='the amount of episodes played in to asses performance', type=int, default=20)
     parser.add_argument('--hidden_dim', help='hidden dimensions for the Q_network', type=int, default=128)
-    parser.add_argument('--horizon', help='number of steps taken in the environment before terminating the episode (prevents very long episodes)', type=int, default=np.inf)
+    parser.add_argument('--horizon', help='number of steps taken in the environment before terminating the episode ('
+                                          'prevents very long episodes)', type=int, default=np.inf)
     parser.add_argument('--render_step', help='see above', type=int, default=50)
     parser.add_argument('--num_actions', help='Number of action space to discretize to', type=int, default=100)
 
@@ -72,9 +78,7 @@ def main():
     else:
         if args.algorithm == 'A3C':
             # Create global actor-critic holding main models
-            agent = A3C(max_episodes=args.episodes, discount_rate=args.discount, step_max=args.step_max,
-                        actor_lr=args.actor_lr, critic_lr=args.critic_lr, n_threads=args.threads,
-                        eval_repeats=args.eval_repeats, no_log=args.no_log)
+            agent = A3C(vars(args))
 
         else:
             agent = DDQN(vars(args))

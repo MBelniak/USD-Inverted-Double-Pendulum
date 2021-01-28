@@ -25,23 +25,22 @@ class A3C(Model):
     step_max, Actor, Critic, workers = {}, {}, {}, []
 
     # Actor-Critic Main Optimization Algorithm
-    def __init__(self, max_episodes=100000, discount_rate=0.99, step_max=5, actor_lr=0.001, critic_lr=0.001,
-                 n_threads=5, measure_step=1000, eval_repeats=20, no_log=True):
+    def __init__(self, kwargs):
         super().__init__()
         self.env = gym.make(ENV_NAME)
         self.env.dt = self.env.unwrapped.dt / 2
         self.action_space = self.env.action_space
         self.action_size = self.action_space.shape[0]
-        self.max_episodes, self.episode = max_episodes, 0
+        self.max_episodes, self.episode = kwargs["episodes"], 0
         self.lock = Lock()
-        self.actor_learning_rate = actor_lr
-        self.critic_learning_rate = critic_lr
-        self.n_threads = n_threads
-        self.discount_rate = discount_rate
-        self.step_max = step_max
-        self.measure_step = measure_step
-        self.eval_repeats = eval_repeats
-        self.no_log = no_log
+        self.actor_learning_rate = kwargs["actor_lr"]
+        self.critic_learning_rate = kwargs["critic_lr"]
+        self.n_threads = kwargs["threads"]
+        self.discount_rate = kwargs["discount_rate"]
+        self.step_max = kwargs["step_max"]
+        self.measure_step = kwargs["measure_step"]
+        self.eval_repeats = kwargs["measure_repeats"]
+        self.no_log = kwargs["no_log"]
 
         # Create Actor-Critic network models
         self.Actor = Actor(state_space=self.env.observation_space, learning_rate=self.actor_learning_rate,
