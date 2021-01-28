@@ -28,7 +28,7 @@ class DDQN(Agent):
     """
     def __init__(self, kwargs):
         super().__init__()
-        self.discount_rate = kwargs['discount_rate']
+        self.discount_rate = kwargs['discount']
         self.learning_rate = kwargs['lr']
         self.min_episodes = kwargs['min_episodes']
         self.eps = kwargs['eps']

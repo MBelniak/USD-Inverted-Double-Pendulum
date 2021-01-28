@@ -34,9 +34,9 @@ def main():
     parser.add_argument('--load_file', help='Custom filename from which to load weights before rendering.', default=None)
     parser.add_argument('--episodes', help='Number of episodes for DDQN (run from beginning to terminal state).',
                         type=int, default=10000)
+    parser.add_argument('--discount', help='Discount rate.', type=float, default=0.99)
 #A3C pararms
     parser.add_argument('--threads', help='Number of threads for A3C.', type=int, default=5)
-    parser.add_argument('--discount', help='Discount rate.', type=float, default=0.99)
     parser.add_argument('--step_max', help='Max steps before update.', type=int, default=5)
     parser.add_argument('--actor_lr', help='Actor learning rate.', type=float, default=0.001)
     parser.add_argument('--critic_lr', help='Critic learning rate.', type=float, default=0.001)
@@ -44,7 +44,6 @@ def main():
                                                ' Set to 0 to disable.', type=int, default=10)
     parser.add_argument('-no_log', help='Disable logging during training.', action='store_true')
 #DDQN paramrs
-    parser.add_argument('--discount_rate', help='reward discount factor.', type=float, default=0.99)
     parser.add_argument('--lr', help='learning rate.', type=float, default=0.001)
     parser.add_argument('--min_episodes', help='We wait "min_episodes" many episodes in order to aggregate enough data'
                                                ' before starting to train', type=int, default=20)

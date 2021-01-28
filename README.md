@@ -43,3 +43,35 @@ for training with default parameters. Default algorithm is DDQN.
 
   `-render`  Render environment. Before rendering, there must exist a model
   saved in a file which name is generated based on parameters or explicitly provided.
+
+  `--lr` Learning rate.
+
+  `--min_episodes`  We wait "min_episodes" many episodes in order to aggregate enough data before starting to train.
+
+  `--eps` Probability to take a random action during training.
+
+  `--eps_decay` After every episode "eps" is multiplied by "eps_decay" to reduces exploration over time.
+
+  `--eps_min`  Minimal value of "eps".
+
+  `--update_step` After "update_step" many episodes the Q-Network is trained "update_repeats" many times with a batch of size "batch_size" from the memory.
+
+  `--batch_size` See above.
+
+  `--update_repeats` See above.
+
+  `--seed` Random seed for reproducibility.
+
+  `--max_memory_size` Size of the replay memory.
+
+  `--measure_step` Every "measure_step" episode the performance is measured.
+
+  `--measure_repeats` The amount of episodes played in to asses performance.
+
+  `--hidden_dim` Hidden dimensions for the Q_network.
+
+  `--horizon` Number of steps taken in the environment before terminating the episode (prevents very long episodes).
+
+  `--render_step` See above.
+
+  `--num_actions` Number of action space to discretize to

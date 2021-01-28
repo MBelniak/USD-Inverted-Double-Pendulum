@@ -36,7 +36,7 @@ class A3C(Agent):
         self.actor_learning_rate = kwargs["actor_lr"]
         self.critic_learning_rate = kwargs["critic_lr"]
         self.n_threads = kwargs["threads"]
-        self.discount_rate = kwargs["discount_rate"]
+        self.discount_rate = kwargs["discount"]
         self.step_max = kwargs["step_max"]
         self.measure_step = kwargs["measure_step"]
         self.eval_repeats = kwargs["measure_repeats"]
