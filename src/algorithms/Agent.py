@@ -1,9 +1,9 @@
 
-class Model(object):
+class Agent(object):
     performance, learning_rate, env, max_episodes = [], {}, {}, {}
 
     def __init__(self):
-        if type(self) is Model:
+        if type(self) is Agent:
             raise Exception('Model is an abstract class and cannot be instantiated directly')
 
     def test(self):

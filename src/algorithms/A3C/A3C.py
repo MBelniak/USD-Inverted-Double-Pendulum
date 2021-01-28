@@ -11,7 +11,7 @@ from algorithms.A3C.Critic import Critic
 import gym
 import os
 
-from algorithms.Model import Model
+from algorithms.Agent import Agent
 from logger.logger import a3c_logger
 from utils import get_default_save_filename, ensure_unique_path, ENV_NAME, t
 
@@ -19,7 +19,7 @@ SAVE_DIR = "saved_models"
 PLOTS_DIR = "plots"
 
 
-class A3C(Model):
+class A3C(Agent):
     # for PyCharm to resolve it correctly in A3CWorker
     lock, discount_rate = {}, {}
     step_max, Actor, Critic, workers = {}, {}, {}, []

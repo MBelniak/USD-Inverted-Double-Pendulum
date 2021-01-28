@@ -7,7 +7,7 @@ import random
 
 from algorithms.DDQN.Memory import Memory
 from algorithms.DDQN.QNetwork import QNetwork
-from algorithms.Model import Model
+from algorithms.Agent import Agent
 from logger.logger import dqn_logger
 from utils import ensure_unique_path, ENV_NAME
 from matplotlib import pyplot as plt
@@ -22,7 +22,7 @@ SAVE_DIR = "saved_models"
 PLOTS_DIR = "plots"
 
 
-class DDQN(Model):
+class DDQN(Agent):
     """
     :return: the trained Q-Network and the measured performances
     """
